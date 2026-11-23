@@ -110,7 +110,8 @@ app.MapGet("/test/monitor", async (HttpContext kontekst, IConfiguration konfigur
         using var czytnik = new StreamReader(strumien);
         while (await czytnik.ReadLineAsync(kontekst.RequestAborted) is { } linia)
         {
-            if (linia == "+OK" || linia.Contains("\"PING\"") || linia.Contains("\"INFO\""))
+            var liniaDoPominiecia = linia == "+OK" || linia.Contains("\"PING\"") || linia.Contains("\"INFO\"");
+            if (liniaDoPominiecia)
             {
                 continue;
             }

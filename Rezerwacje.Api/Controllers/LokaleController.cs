@@ -81,7 +81,13 @@ public class LokaleController : ControllerBase
             return Problem(detail: "Spróbuj ponownie", statusCode: 503);
         }
 
-        if (lokal is null || !lokal.Pracownicy.Any(pracownik => pracownik.Id == pracownikId))
+        if (lokal is null)
+        {
+            return NotFound();
+        }
+
+        var pracownikIstnieje = lokal.Pracownicy.Any(pracownik => pracownik.Id == pracownikId);
+        if (!pracownikIstnieje)
         {
             return NotFound();
         }

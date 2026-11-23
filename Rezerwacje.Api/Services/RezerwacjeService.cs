@@ -59,7 +59,9 @@ public class RezerwacjeService
 
     public async Task<WynikRezerwacji> RezerwujAsync(string klientId, NowaRezerwacja nowaRezerwacja)
     {
-        if (!Format.CzyPoprawnaData(nowaRezerwacja.Data) || !Format.CzyPelnaGodzina(nowaRezerwacja.Godzina))
+        var dataPoprawna = Format.CzyPoprawnaData(nowaRezerwacja.Data);
+        var godzinaPelna = Format.CzyPelnaGodzina(nowaRezerwacja.Godzina);
+        if (!dataPoprawna || !godzinaPelna)
         {
             return new(null, "Data yyyy-MM-dd, godzina pełna HH:00", 400);
         }
@@ -74,7 +76,13 @@ public class RezerwacjeService
         try
         {
             var lokal = await _lokaleService.PobierzLokalZBazyAsync(nowaRezerwacja.LokalId);
-            if (lokal is null || !lokal.Pracownicy.Any(pracownik => pracownik.Id == nowaRezerwacja.PracownikId))
+            if (lokal is null)
+            {
+                return new(null, "Nie ma takiego lokalu lub pracownika", 404);
+            }
+
+            var pracownikIstnieje = lokal.Pracownicy.Any(pracownik => pracownik.Id == nowaRezerwacja.PracownikId);
+            if (!pracownikIstnieje)
             {
                 return new(null, "Nie ma takiego lokalu lub pracownika", 404);
             }
@@ -82,7 +90,8 @@ public class RezerwacjeService
             var wolneGodziny = await PoliczWolneGodzinyZBazyAsync(lokal, nowaRezerwacja.PracownikId, nowaRezerwacja.Data);
             _log.LogInformation("[{Pid}] {Lok} {Prac} {Data}: baza, wolnych godzin {Ile}",
                 Environment.ProcessId, nowaRezerwacja.LokalId, nowaRezerwacja.PracownikId, nowaRezerwacja.Data, wolneGodziny.Count);
-            if (!wolneGodziny.Contains(nowaRezerwacja.Godzina))
+            var terminWolny = wolneGodziny.Contains(nowaRezerwacja.Godzina);
+            if (!terminWolny)
             {
                 _log.LogInformation("[{Pid}] {Lok} {Prac} {Data} {Godz}: termin zajęty",
                     Environment.ProcessId, nowaRezerwacja.LokalId, nowaRezerwacja.PracownikId, nowaRezerwacja.Data, nowaRezerwacja.Godzina);
@@ -152,7 +161,8 @@ public class RezerwacjeService
         for (var godzina = godzinaOtwarcia; godzina < godzinaZamkniecia; godzina++)
         {
             var slot = $"{godzina:00}:00";
-            if (!zajeteGodziny.Contains(slot))
+            var godzinaZajeta = zajeteGodziny.Contains(slot);
+            if (!godzinaZajeta)
             {
                 wolneGodziny.Add(slot);
             }
