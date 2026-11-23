@@ -3,7 +3,6 @@ using MongoDB.Driver;
 using Rezerwacje.Api.models;
 using Rezerwacje.Api.Services;
 using StackExchange.Redis;
-using Microsoft.AspNetCore.Mvc;
 using System.Net.Sockets;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +30,11 @@ builder.Services.AddSingleton<CacheRedis>();
 builder.Services.AddSingleton<LokaleService>();
 
 builder.Services.AddSingleton<RezerwacjeService>();
+
+builder.Services.AddControllers(opcje =>
+{
+    opcje.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+});
 
 builder.Services.AddOpenApi();
 
@@ -71,120 +75,7 @@ app.MapGet("/", () =>
     return "dziala";
 });
 
-var grupa = app.MapGroup("/").AddEndpointFilter(async (kontekst, nastepny) =>
-{
-    var klientId = kontekst.HttpContext.Request.Headers["X-Klient-Id"].ToString();
-    if (string.IsNullOrWhiteSpace(klientId))
-    {
-        return Results.Problem("Brak klientId", statusCode: 400);
-    }
-
-    return await nastepny(kontekst);
-});
-
-grupa.MapGet("/lokale", async (string? typ, string? fraza, LokaleService lokaleService) =>
-{
-    var znalezioneLokale = await lokaleService.SzukajAsync(typ, fraza);
-    return Results.Ok(znalezioneLokale);
-});
-
-grupa.MapGet("/lokale/{lokalId}", async (string lokalId, LokaleService lokaleService) =>
-{
-    var (czyLokalPobrany, lokal) = await lokaleService.PobierzLokalAsync(lokalId);
-    if (!czyLokalPobrany)
-    {
-        return Results.Problem("Spróbuj ponownie", statusCode: 503);
-    }
-
-    if (lokal is null)
-    {
-        return Results.NotFound();
-    }
-
-    return Results.Ok(lokal);
-});
-
-grupa.MapPost("/lokale", async (Lokal lokal, LokaleService lokaleService) =>
-{
-    var czyDodany = await lokaleService.DodajAsync(lokal);
-    if (!czyDodany)
-    {
-        return Results.Problem("Lokal o takim id już istnieje", statusCode: 409);
-    }
-
-    return Results.Created($"/lokale/{lokal.Id}", lokal);
-});
-
-grupa.MapPut("/lokale/{lokalId}", async (string lokalId, Lokal lokal, LokaleService lokaleService) =>
-{
-    var czyEdytowany = await lokaleService.EdytujAsync(lokalId, lokal);
-    if (!czyEdytowany)
-    {
-        return Results.NotFound();
-    }
-
-    return Results.Ok(lokal);
-});
-
-grupa.MapGet("/lokale/{lokalId}/pracownicy/{pracownikId}/wolne", async (
-    string lokalId,
-    string pracownikId,
-    string? data,
-    LokaleService lokaleService,
-    RezerwacjeService rezerwacjeService) =>
-{
-    if (!Format.CzyPoprawnaData(data))
-    {
-        return Results.Problem("Data w formacie yyyy-MM-dd", statusCode: 400);
-    }
-
-    var (czyLokalPobrany, lokal) = await lokaleService.PobierzLokalAsync(lokalId);
-    if (!czyLokalPobrany)
-    {
-        return Results.Problem("Spróbuj ponownie", statusCode: 503);
-    }
-
-    if (lokal is null || !lokal.Pracownicy.Any(pracownik => pracownik.Id == pracownikId))
-    {
-        return Results.NotFound();
-    }
-
-    var (czyWolneGodzinyPobrane, wolneGodziny) = await rezerwacjeService.PobierzWolneGodzinyAsync(lokal, pracownikId, data!);
-    if (!czyWolneGodzinyPobrane)
-    {
-        return Results.Problem("Spróbuj ponownie", statusCode: 503);
-    }
-
-    return Results.Ok(wolneGodziny);
-});
-
-grupa.MapPost("/rezerwacje", async (
-    [FromHeader(Name = "X-Klient-Id")] string? klientId,
-    NowaRezerwacja nowaRezerwacja,
-    RezerwacjeService rezerwacjeService) =>
-{
-    var wynikRezerwacji = await rezerwacjeService.RezerwujAsync(klientId!, nowaRezerwacja);
-    if (wynikRezerwacji.Rezerwacja is null)
-    {
-        return Results.Problem(wynikRezerwacji.Blad, statusCode: wynikRezerwacji.Kod);
-    }
-
-    var adresRezerwacji = $"/rezerwacje/{Uri.EscapeDataString(wynikRezerwacji.Rezerwacja.Id)}";
-    return Results.Created(adresRezerwacji, wynikRezerwacji.Rezerwacja);
-});
-
-grupa.MapGet("/rezerwacje/moje", async (
-    [FromHeader(Name = "X-Klient-Id")] string? klientId,
-    RezerwacjeService rezerwacjeService) =>
-{
-    var (czyRezerwacjePobrane, rezerwacjeKlienta) = await rezerwacjeService.PobierzRezerwacjeKlientaAsync(klientId!);
-    if (!czyRezerwacjePobrane)
-    {
-        return Results.Problem("Spróbuj ponownie", statusCode: 503);
-    }
-
-    return Results.Ok(rezerwacjeKlienta);
-});
+app.MapControllers();
 
 app.MapGet("/test/blokada", async (BlokadaRedis blokada) =>
 {

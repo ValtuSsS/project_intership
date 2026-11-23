@@ -63,7 +63,7 @@ public class CacheRedis
                     var daneZBazy = await pobierzZBazy();
                     await bazaRedis.StringSetAsync(kluczDanych, JsonSerializer.Serialize(daneZBazy), czasZyciaCache);
 
-                    _log.LogInformation("[{Pid}] {Klucz}: cosmos", Environment.ProcessId, kluczDanych);
+                    _log.LogInformation("[{Pid}] {Klucz}: baza", Environment.ProcessId, kluczDanych);
                     return (true, daneZBazy);
                 }
                 finally

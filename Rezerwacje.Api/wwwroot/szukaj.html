@@ -25,69 +25,104 @@ pre { background: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; fon
 
 <div class="pasek">
 <label>Typ <input id="typ"></label>
-<label>Nazwa zawiera <input id="fr"></label>
-<button onclick="szukaj()">Szukaj</button>
-<label><input type="checkbox" id="naZyw" style="width:auto"> na żywo</label>
+<label>Nazwa zawiera <input id="fraza"></label>
+<button onclick="szukajLokali()">Szukaj</button>
+<label><input type="checkbox" id="naZywo" style="width:auto"> na żywo</label>
 </div>
 
 <div id="stan"></div>
-<pre id="wyn"></pre>
+<pre id="wynik"></pre>
 
 <script>
-const pole = id => document.getElementById(id).value.trim();
-const stan = document.getElementById("stan");
-const wyn = document.getElementById("wyn");
-let zegar = null;
+const poleStanu = document.getElementById("stan");
+const poleWyniku = document.getElementById("wynik");
+let opoznienieWyszukiwania = null;
 
-function koloruj(json) {
-  const bez = json.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return bez.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(\.\d+)?([eE][+-]?\d+)?)/g, m => {
-    let kls = "lb";
-    if (m.startsWith('"')) kls = m.trimEnd().endsWith(":") ? "kl" : "tx";
-    else if (m === "true" || m === "false") kls = "bo";
-    else if (m === "null") kls = "nu";
-    return `<span class="${kls}">${m}</span>`;
+function wartoscPola(idPola) {
+  return document.getElementById(idPola).value.trim();
+}
+
+function pokolorujJson(json) {
+  const bezpiecznyJson = json.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const wzorzecElementu = /("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(\.\d+)?([eE][+-]?\d+)?)/g;
+
+  return bezpiecznyJson.replace(wzorzecElementu, element => {
+    let klasaCss = "lb";
+    if (element.startsWith('"')) {
+      klasaCss = element.trimEnd().endsWith(":") ? "kl" : "tx";
+    } else if (element === "true" || element === "false") {
+      klasaCss = "bo";
+    } else if (element === "null") {
+      klasaCss = "nu";
+    }
+
+    return `<span class="${klasaCss}">${element}</span>`;
   });
 }
 
-async function szukaj() {
-  const par = new URLSearchParams();
-  if (pole("typ")) par.set("typ", pole("typ"));
-  if (pole("fr")) par.set("fraza", pole("fr"));
-  const zap = par.toString();
-  const sciez = "/lokale" + (zap ? "?" + zap : "");
-  const pocz = performance.now();
+async function szukajLokali() {
+  const parametry = new URLSearchParams();
+  if (wartoscPola("typ")) {
+    parametry.set("typ", wartoscPola("typ"));
+  }
+
+  if (wartoscPola("fraza")) {
+    parametry.set("fraza", wartoscPola("fraza"));
+  }
+
+  const zapytanie = parametry.toString();
+  const sciezka = "/lokale" + (zapytanie ? "?" + zapytanie : "");
+  const poczatek = performance.now();
+
   try {
-    const odp = await fetch(sciez, { headers: { "X-Klient-Id": "k1" } });
-    const tekst = await odp.text();
-    const ms = Math.round(performance.now() - pocz);
-    const pid = odp.headers.get("X-Pid") ?? "?";
+    const odpowiedz = await fetch(sciezka, { headers: { "X-Klient-Id": "k1" } });
+    const trescOdpowiedzi = await odpowiedz.text();
+    const czasMs = Math.round(performance.now() - poczatek);
+    const pid = odpowiedz.headers.get("X-Pid") ?? "?";
+
     let dane;
-    try { dane = JSON.parse(tekst); } catch { dane = tekst; }
-    const ile = Array.isArray(dane) ? `, lokali: ${dane.length}` : "";
-    stan.className = odp.ok ? "ok" : "blad";
-    stan.textContent = `GET ${sciez}  ->  ${odp.status}  (${ms} ms, PID ${pid}${ile})`;
-    wyn.innerHTML = typeof dane === "string" ? dane : koloruj(JSON.stringify(dane, null, 2));
-  } catch (e) {
-    stan.className = "blad";
-    stan.textContent = "brak połączenia";
-    wyn.textContent = "";
+    try {
+      dane = JSON.parse(trescOdpowiedzi);
+    } catch {
+      dane = trescOdpowiedzi;
+    }
+
+    const liczbaLokali = Array.isArray(dane) ? `, lokali: ${dane.length}` : "";
+    poleStanu.className = odpowiedz.ok ? "ok" : "blad";
+    poleStanu.textContent = `GET ${sciezka}  ->  ${odpowiedz.status}  (${czasMs} ms, PID ${pid}${liczbaLokali})`;
+
+    if (typeof dane === "string") {
+      poleWyniku.textContent = dane;
+    } else {
+      poleWyniku.innerHTML = pokolorujJson(JSON.stringify(dane, null, 2));
+    }
+  } catch (blad) {
+    poleStanu.className = "blad";
+    poleStanu.textContent = "brak połączenia";
+    poleWyniku.textContent = "";
   }
 }
 
-function naZywo() {
-  if (!document.getElementById("naZyw").checked) return;
-  clearTimeout(zegar);
-  zegar = setTimeout(szukaj, 300);
+function szukajNaZywo() {
+  if (!document.getElementById("naZywo").checked) {
+    return;
+  }
+
+  clearTimeout(opoznienieWyszukiwania);
+  opoznienieWyszukiwania = setTimeout(szukajLokali, 300);
 }
 
-for (const id of ["typ", "fr"]) {
-  const el = document.getElementById(id);
-  el.addEventListener("keydown", e => { if (e.key === "Enter") szukaj(); });
-  el.addEventListener("input", naZywo);
+for (const idPola of ["typ", "fraza"]) {
+  const poleTekstowe = document.getElementById(idPola);
+  poleTekstowe.addEventListener("keydown", zdarzenie => {
+    if (zdarzenie.key === "Enter") {
+      szukajLokali();
+    }
+  });
+  poleTekstowe.addEventListener("input", szukajNaZywo);
 }
 
-szukaj();
+szukajLokali();
 </script>
 </body>
 </html>

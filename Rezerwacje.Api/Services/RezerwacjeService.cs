@@ -80,7 +80,7 @@ public class RezerwacjeService
             }
 
             var wolneGodziny = await PoliczWolneGodzinyZBazyAsync(lokal, nowaRezerwacja.PracownikId, nowaRezerwacja.Data);
-            _log.LogInformation("[{Pid}] {Lok} {Prac} {Data}: cosmos, wolnych godzin {Ile}",
+            _log.LogInformation("[{Pid}] {Lok} {Prac} {Data}: baza, wolnych godzin {Ile}",
                 Environment.ProcessId, nowaRezerwacja.LokalId, nowaRezerwacja.PracownikId, nowaRezerwacja.Data, wolneGodziny.Count);
             if (!wolneGodziny.Contains(nowaRezerwacja.Godzina))
             {
@@ -110,7 +110,7 @@ public class RezerwacjeService
                 return new(null, "Termin zajęty", 409);
             }
 
-            _log.LogInformation("[{Pid}] {Id}: cosmos, zapisana dla {Klient}", Environment.ProcessId, rezerwacja.Id, klientId);
+            _log.LogInformation("[{Pid}] {Id}: baza, zapisana dla {Klient}", Environment.ProcessId, rezerwacja.Id, klientId);
 
             var kluczWolnychGodzin = $"wolne:{nowaRezerwacja.LokalId}:{nowaRezerwacja.PracownikId}:{nowaRezerwacja.Data}";
             var kluczRezerwacjiKlienta = $"rezerwacje:klient:{klientId}";

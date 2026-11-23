@@ -18,9 +18,9 @@ table { border-collapse: collapse; width: 100%; }
 td { padding: 3px 4px; }
 td:first-child { width: 150px; }
 button { padding: 5px 10px; cursor: pointer; }
-#log, #mon { background: #1e1e1e; color: #ddd; font-family: Consolas, monospace; font-size: 13px; padding: 10px; overflow: auto; white-space: pre-wrap; border-radius: 6px; }
-#log { height: 330px; margin-bottom: 10px; }
-#mon { height: 330px; }
+#odpowiedzi, #monitor { background: #1e1e1e; color: #ddd; font-family: Consolas, monospace; font-size: 13px; padding: 10px; overflow: auto; white-space: pre-wrap; border-radius: 6px; }
+#odpowiedzi { height: 330px; margin-bottom: 10px; }
+#monitor { height: 330px; }
 .pasek { margin: 6px 0; }
 .lua { color: #8a8a8a; }
 .ok { color: #7ccf7c; }
@@ -35,197 +35,281 @@ button { padding: 5px 10px; cursor: pointer; }
 
 <fieldset>
 <legend>Kto pyta</legend>
-<label>Klient wysyłany przez A <input id="klA" value="k1"></label>
-<label>Klient wysyłany przez B <input id="klB" value="k2"></label>
+<label>Klient wysyłany przez A <input id="klientA" value="k1"></label>
+<label>Klient wysyłany przez B <input id="klientB" value="k2"></label>
 </fieldset>
 
 <fieldset>
 <legend>Termin</legend>
-<label>Lokal <input id="lok" value="lok1"></label>
-<label>Pracownik <input id="pr" value="p1"></label>
-<label>Data <input id="dt" value="2026-12-16"></label>
-<label>Godzina <input id="gz" value="10:00"></label>
+<label>Lokal <input id="lokalId" value="lok1"></label>
+<label>Pracownik <input id="pracownikId" value="p1"></label>
+<label>Data <input id="data" value="2026-12-16"></label>
+<label>Godzina <input id="godzina" value="10:00"></label>
 </fieldset>
 
 <fieldset>
 <legend>Zapytania</legend>
 <table>
 <tr><td>Pobierz lokal</td>
-<td><button onclick="lokal(A)">A</button> <button onclick="lokal(B)">B</button></td></tr>
+<td><button onclick="pobierzLokal(instancjaA)">A</button> <button onclick="pobierzLokal(instancjaB)">B</button></td></tr>
 <tr><td>Wolne godziny</td>
-<td><button onclick="wolne(A)">A</button> <button onclick="wolne(B)">B</button> <button onclick="wyscWol()">A i B naraz</button></td></tr>
+<td><button onclick="pobierzWolneGodziny(instancjaA)">A</button> <button onclick="pobierzWolneGodziny(instancjaB)">B</button> <button onclick="wyscigWolneGodziny()">A i B naraz</button></td></tr>
 <tr><td>Rezerwuj</td>
-<td><button onclick="rezerw(A)">A</button> <button onclick="rezerw(B)">B</button> <button onclick="wyscRez()">A i B naraz</button></td></tr>
+<td><button onclick="zarezerwuj(instancjaA)">A</button> <button onclick="zarezerwuj(instancjaB)">B</button> <button onclick="wyscigRezerwacja()">A i B naraz</button></td></tr>
 <tr><td>Moje rezerwacje</td>
-<td><button onclick="moje(A)">A</button> <button onclick="moje(B)">B</button></td></tr>
+<td><button onclick="pobierzMojeRezerwacje(instancjaA)">A</button> <button onclick="pobierzMojeRezerwacje(instancjaB)">B</button></td></tr>
 </table>
 </fieldset>
 
 <fieldset>
 <legend>Nowy lub edytowany lokal</legend>
-<label>Id <input id="nId" value="lok18"></label>
-<label>Nazwa <input id="nNaz" value="Salon Testowy" style="width:160px"></label>
-<label>Typ <input id="nTyp" value="fryzjer"></label>
-<label>Pracownicy <input id="nPr" value="Jan, Ewa" style="width:160px"></label>
-<label>Pn-Pt od <input id="nOd" value="09:00" style="width:60px"></label>
-<label>do <input id="nDo" value="17:00" style="width:60px"></label>
+<label>Id <input id="nowyLokalId" value="lok18"></label>
+<label>Nazwa <input id="nowyLokalNazwa" value="Salon Testowy" style="width:160px"></label>
+<label>Typ <input id="nowyLokalTyp" value="fryzjer"></label>
+<label>Pracownicy <input id="nowyLokalPracownicy" value="Jan, Ewa" style="width:160px"></label>
+<label>Pn-Pt od <input id="nowyLokalOd" value="09:00" style="width:60px"></label>
+<label>do <input id="nowyLokalDo" value="17:00" style="width:60px"></label>
 <table>
 <tr><td>Pobierz ten lokal</td>
-<td><button onclick="pobN(A)">A</button> <button onclick="pobN(B)">B</button></td></tr>
+<td><button onclick="pobierzNowyLokal(instancjaA)">A</button> <button onclick="pobierzNowyLokal(instancjaB)">B</button></td></tr>
 <tr><td>Dodaj (POST)</td>
-<td><button onclick="dodajN(A)">A</button> <button onclick="dodajN(B)">B</button></td></tr>
+<td><button onclick="dodajNowyLokal(instancjaA)">A</button> <button onclick="dodajNowyLokal(instancjaB)">B</button></td></tr>
 <tr><td>Edytuj (PUT)</td>
-<td><button onclick="edytN(A)">A</button> <button onclick="edytN(B)">B</button></td></tr>
+<td><button onclick="edytujNowyLokal(instancjaA)">A</button> <button onclick="edytujNowyLokal(instancjaB)">B</button></td></tr>
 </table>
 </fieldset>
 
 <fieldset>
 <legend>Cache</legend>
-<button onclick="usun(`wolne:${pole('lok')}:${pole('pr')}:${pole('dt')}`)">Usuń wolne godziny z Redisa</button>
-<button onclick="usun(`lokal:${pole('lok')}`)">Usuń lokal z Redisa</button>
-<button onclick="usun(`lokal:${pole('nId')}`)">Usuń nowy lokal z Redisa</button>
+<button onclick="usunZRedisa(`wolne:${wartoscPola('lokalId')}:${wartoscPola('pracownikId')}:${wartoscPola('data')}`)">Usuń wolne godziny z Redisa</button>
+<button onclick="usunZRedisa(`lokal:${wartoscPola('lokalId')}`)">Usuń lokal z Redisa</button>
+<button onclick="usunZRedisa(`lokal:${wartoscPola('nowyLokalId')}`)">Usuń nowy lokal z Redisa</button>
 </fieldset>
 
 </div>
 <div class="prawa">
-<div class="pasek"><b>Odpowiedzi</b> <button onclick="log.textContent = ''">Wyczyść</button></div>
-<div id="log"></div>
+<div class="pasek"><b>Odpowiedzi</b> <button onclick="oknoOdpowiedzi.textContent = ''">Wyczyść</button></div>
+<div id="odpowiedzi"></div>
 <div class="pasek"><b>Redis MONITOR</b>
-<button onclick="monStart()">Włącz</button>
-<button onclick="monStop()">Wyłącz</button>
-<button onclick="mon.textContent = ''">Wyczyść</button>
-<span id="monStan" class="opis">wyłączony</span></div>
-<div id="mon"></div>
+<button onclick="wlaczMonitor()">Włącz</button>
+<button onclick="wylaczMonitor()">Wyłącz</button>
+<button onclick="oknoMonitora.textContent = ''">Wyczyść</button>
+<span id="stanMonitora" class="opis">wyłączony</span></div>
+<div id="monitor"></div>
 </div>
 </div>
 
 <script>
-const A = "http://localhost:5126";
-const B = "http://localhost:5127";
-const log = document.getElementById("log");
-const pole = id => document.getElementById(id).value.trim();
-const klDla = host => host === A ? pole("klA") : pole("klB");
+const instancjaA = "http://localhost:5126";
+const instancjaB = "http://localhost:5127";
+const oknoOdpowiedzi = document.getElementById("odpowiedzi");
+const oknoMonitora = document.getElementById("monitor");
 
-function wpis(tekst, klasa) {
-  const lin = document.createElement("div");
-  lin.className = klasa;
-  lin.textContent = tekst;
-  log.appendChild(lin);
-  log.scrollTop = log.scrollHeight;
+function wartoscPola(idPola) {
+  return document.getElementById(idPola).value.trim();
 }
 
-async function wyslij(host, metoda, sciez, klId, cialo) {
-  const nagl = {};
-  if (klId) nagl["X-Klient-Id"] = klId;
-  if (cialo) nagl["Content-Type"] = "application/json";
-  const inst = host === A ? "A" : "B";
-  const pocz = performance.now();
+function klientDlaInstancji(adresInstancji) {
+  if (adresInstancji === instancjaA) {
+    return wartoscPola("klientA");
+  }
+
+  return wartoscPola("klientB");
+}
+
+function nazwaInstancji(adresInstancji) {
+  if (adresInstancji === instancjaA) {
+    return "A";
+  }
+
+  return "B";
+}
+
+function dopiszLinie(tekst, klasaCss) {
+  const linia = document.createElement("div");
+  linia.className = klasaCss;
+  linia.textContent = tekst;
+  oknoOdpowiedzi.appendChild(linia);
+  oknoOdpowiedzi.scrollTop = oknoOdpowiedzi.scrollHeight;
+}
+
+async function wyslijZapytanie(adresInstancji, metoda, sciezka, klientId, trescZapytania) {
+  const naglowki = {};
+  if (klientId) {
+    naglowki["X-Klient-Id"] = klientId;
+  }
+
+  if (trescZapytania) {
+    naglowki["Content-Type"] = "application/json";
+  }
+
+  const instancja = nazwaInstancji(adresInstancji);
+  const poczatek = performance.now();
+
   try {
-    const odp = await fetch(host + sciez, {
+    const odpowiedz = await fetch(adresInstancji + sciezka, {
       method: metoda,
-      headers: nagl,
-      body: cialo ? JSON.stringify(cialo) : undefined
+      headers: naglowki,
+      body: trescZapytania ? JSON.stringify(trescZapytania) : undefined
     });
-    const tekst = await odp.text();
-    const ms = Math.round(performance.now() - pocz);
-    const czas = new Date().toLocaleTimeString("pl-PL");
-    const pid = odp.headers.get("X-Pid") ?? "?";
-    wpis(`${czas}  ${inst} (PID ${pid})  ${metoda} ${sciez}  [klient: ${klId || "brak"}]  ->  ${odp.status}  (${ms} ms)`, odp.ok ? "ok" : "blad");
-    wpis("    " + tekst, "inf");
-  } catch (e) {
-    wpis(`${inst}  ${metoda} ${sciez}  ->  brak połączenia, czy instancja działa?`, "blad");
+
+    const trescOdpowiedzi = await odpowiedz.text();
+    const czasMs = Math.round(performance.now() - poczatek);
+    const godzinaWyslania = new Date().toLocaleTimeString("pl-PL");
+    const pid = odpowiedz.headers.get("X-Pid") ?? "?";
+    const klasaCss = odpowiedz.ok ? "ok" : "blad";
+
+    dopiszLinie(`${godzinaWyslania}  ${instancja} (PID ${pid})  ${metoda} ${sciezka}  [klient: ${klientId || "brak"}]  ->  ${odpowiedz.status}  (${czasMs} ms)`, klasaCss);
+    dopiszLinie("    " + trescOdpowiedzi, "inf");
+  } catch (blad) {
+    dopiszLinie(`${instancja}  ${metoda} ${sciezka}  ->  brak połączenia, czy instancja działa?`, "blad");
   }
 }
 
-const sciezWol = dt => `/lokale/${pole("lok")}/pracownicy/${pole("pr")}/wolne?data=${dt ?? pole("dt")}`;
-
-function lokal(host) {
-  return wyslij(host, "GET", `/lokale/${pole("lok")}`, klDla(host));
+function sciezkaWolnychGodzin() {
+  return `/lokale/${wartoscPola("lokalId")}/pracownicy/${wartoscPola("pracownikId")}/wolne?data=${wartoscPola("data")}`;
 }
 
-function wolne(host) {
-  return wyslij(host, "GET", sciezWol(), klDla(host));
+function pobierzLokal(adresInstancji) {
+  return wyslijZapytanie(adresInstancji, "GET", `/lokale/${wartoscPola("lokalId")}`, klientDlaInstancji(adresInstancji));
 }
 
-function rezerw(host, gz) {
-  return wyslij(host, "POST", "/rezerwacje", klDla(host), {
-    LokalId: pole("lok"),
-    PracownikId: pole("pr"),
-    Data: pole("dt"),
-    Godzina: gz ?? pole("gz")
-  });
+function pobierzWolneGodziny(adresInstancji) {
+  return wyslijZapytanie(adresInstancji, "GET", sciezkaWolnychGodzin(), klientDlaInstancji(adresInstancji));
 }
 
-function moje(host) {
-  return wyslij(host, "GET", "/rezerwacje/moje", klDla(host));
-}
-
-async function wyscWol() {
-  wpis("--- wyścig: wolne godziny, A i B naraz ---", "sep");
-  await Promise.all([wolne(A), wolne(B)]);
-}
-
-async function wyscRez() {
-  wpis(`--- wyścig: rezerwacja ${pole("gz")}, A i B naraz ---`, "sep");
-  await Promise.all([rezerw(A), rezerw(B)]);
-}
-
-function usun(klucz) {
-  return wyslij(A, "DELETE", "/test/cache?klucz=" + encodeURIComponent(klucz), null);
-}
-
-
-function lokalN() {
-  const prac = pole("nPr").split(",").map(x => x.trim()).filter(x => x)
-    .map((imie, i) => ({ Id: "p" + (i + 1), Imie: imie }));
-  const godz = [1, 2, 3, 4, 5].map(d => ({ DzienTygodnia: d, OdGodziny: pole("nOd"), DoGodziny: pole("nDo") }));
-  return { Id: pole("nId"), Nazwa: pole("nNaz"), Typ: pole("nTyp"), Pracownicy: prac, GodzinyOtwarcia: godz };
-}
-
-function pobN(host) {
-  return wyslij(host, "GET", `/lokale/${pole("nId")}`, klDla(host));
-}
-
-function dodajN(host) {
-  return wyslij(host, "POST", "/lokale", klDla(host), lokalN());
-}
-
-function edytN(host) {
-  return wyslij(host, "PUT", `/lokale/${pole("nId")}`, klDla(host), lokalN());
-}
-
-const mon = document.getElementById("mon");
-const kolory = ["#7cc4ff", "#ffb86c", "#c3a6ff", "#7ccf7c", "#ff7c9c"];
-const porty = {};
-let zrodlo = null;
-
-function kolor(lin) {
-  if (lin.includes("[0 lua]")) return null;
-  const traf = lin.match(/:(\d+)\]/);
-  if (!traf) return null;
-  if (!(traf[1] in porty)) porty[traf[1]] = kolory[Object.keys(porty).length % kolory.length];
-  return porty[traf[1]];
-}
-
-function monStart() {
-  if (zrodlo) return;
-  zrodlo = new EventSource(A + "/test/monitor");
-  zrodlo.onopen = () => document.getElementById("monStan").textContent = "włączony";
-  zrodlo.onmessage = e => {
-    const lin = document.createElement("div");
-    lin.textContent = e.data;
-    const kol = kolor(e.data);
-    if (kol) lin.style.color = kol; else lin.className = "lua";
-    mon.appendChild(lin);
-    mon.scrollTop = mon.scrollHeight;
+function zarezerwuj(adresInstancji) {
+  const nowaRezerwacja = {
+    LokalId: wartoscPola("lokalId"),
+    PracownikId: wartoscPola("pracownikId"),
+    Data: wartoscPola("data"),
+    Godzina: wartoscPola("godzina")
   };
-  zrodlo.onerror = () => document.getElementById("monStan").textContent = "brak połączenia z /test/monitor";
+
+  return wyslijZapytanie(adresInstancji, "POST", "/rezerwacje", klientDlaInstancji(adresInstancji), nowaRezerwacja);
 }
 
-function monStop() {
-  if (zrodlo) zrodlo.close();
-  zrodlo = null;
-  document.getElementById("monStan").textContent = "wyłączony";
+function pobierzMojeRezerwacje(adresInstancji) {
+  return wyslijZapytanie(adresInstancji, "GET", "/rezerwacje/moje", klientDlaInstancji(adresInstancji));
+}
+
+async function wyscigWolneGodziny() {
+  dopiszLinie("--- wyścig: wolne godziny, A i B naraz ---", "sep");
+  await Promise.all([pobierzWolneGodziny(instancjaA), pobierzWolneGodziny(instancjaB)]);
+}
+
+async function wyscigRezerwacja() {
+  dopiszLinie(`--- wyścig: rezerwacja ${wartoscPola("godzina")}, A i B naraz ---`, "sep");
+  await Promise.all([zarezerwuj(instancjaA), zarezerwuj(instancjaB)]);
+}
+
+function usunZRedisa(klucz) {
+  return wyslijZapytanie(instancjaA, "DELETE", "/test/cache?klucz=" + encodeURIComponent(klucz), null);
+}
+
+function nowyLokalZFormularza() {
+  const imiona = wartoscPola("nowyLokalPracownicy")
+    .split(",")
+    .map(imie => imie.trim())
+    .filter(imie => imie);
+
+  const pracownicy = imiona.map((imie, indeks) => {
+    return { Id: "p" + (indeks + 1), Imie: imie };
+  });
+
+  const dniRobocze = [1, 2, 3, 4, 5];
+  const godzinyOtwarcia = dniRobocze.map(dzienTygodnia => {
+    return {
+      DzienTygodnia: dzienTygodnia,
+      OdGodziny: wartoscPola("nowyLokalOd"),
+      DoGodziny: wartoscPola("nowyLokalDo")
+    };
+  });
+
+  return {
+    Id: wartoscPola("nowyLokalId"),
+    Nazwa: wartoscPola("nowyLokalNazwa"),
+    Typ: wartoscPola("nowyLokalTyp"),
+    Pracownicy: pracownicy,
+    GodzinyOtwarcia: godzinyOtwarcia
+  };
+}
+
+function pobierzNowyLokal(adresInstancji) {
+  return wyslijZapytanie(adresInstancji, "GET", `/lokale/${wartoscPola("nowyLokalId")}`, klientDlaInstancji(adresInstancji));
+}
+
+function dodajNowyLokal(adresInstancji) {
+  return wyslijZapytanie(adresInstancji, "POST", "/lokale", klientDlaInstancji(adresInstancji), nowyLokalZFormularza());
+}
+
+function edytujNowyLokal(adresInstancji) {
+  return wyslijZapytanie(adresInstancji, "PUT", `/lokale/${wartoscPola("nowyLokalId")}`, klientDlaInstancji(adresInstancji), nowyLokalZFormularza());
+}
+
+const koloryInstancji = ["#7cc4ff", "#ffb86c", "#c3a6ff", "#7ccf7c", "#ff7c9c"];
+const kolorDlaPortu = {};
+let strumienMonitora = null;
+
+function kolorDlaLinii(liniaMonitora) {
+  if (liniaMonitora.includes("[0 lua]")) {
+    return null;
+  }
+
+  const dopasowanie = liniaMonitora.match(/:(\d+)\]/);
+  if (!dopasowanie) {
+    return null;
+  }
+
+  const port = dopasowanie[1];
+  if (!(port in kolorDlaPortu)) {
+    kolorDlaPortu[port] = koloryInstancji[Object.keys(kolorDlaPortu).length % koloryInstancji.length];
+  }
+
+  return kolorDlaPortu[port];
+}
+
+function ustawStanMonitora(tekst) {
+  document.getElementById("stanMonitora").textContent = tekst;
+}
+
+function wlaczMonitor() {
+  if (strumienMonitora) {
+    return;
+  }
+
+  strumienMonitora = new EventSource(instancjaA + "/test/monitor");
+  strumienMonitora.onopen = () => {
+    ustawStanMonitora("włączony");
+  };
+
+  strumienMonitora.onmessage = zdarzenie => {
+    const linia = document.createElement("div");
+    linia.textContent = zdarzenie.data;
+
+    const kolor = kolorDlaLinii(zdarzenie.data);
+    if (kolor) {
+      linia.style.color = kolor;
+    } else {
+      linia.className = "lua";
+    }
+
+    oknoMonitora.appendChild(linia);
+    oknoMonitora.scrollTop = oknoMonitora.scrollHeight;
+  };
+
+  strumienMonitora.onerror = () => {
+    ustawStanMonitora("brak połączenia z /test/monitor");
+  };
+}
+
+function wylaczMonitor() {
+  if (strumienMonitora) {
+    strumienMonitora.close();
+  }
+
+  strumienMonitora = null;
+  ustawStanMonitora("wyłączony");
 }
 </script>
 </body>
