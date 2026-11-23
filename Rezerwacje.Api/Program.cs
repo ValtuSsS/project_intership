@@ -8,13 +8,13 @@ using System.Net.Sockets;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<BazaUstawienia>(builder.Configuration.GetSection("Baza"));
+builder.Services.Configure<UstawieniaBazy>(builder.Configuration.GetSection("Baza"));
 
-builder.Services.Configure<Cache>(builder.Configuration.GetSection("Cache"));
-var mongoConnection = builder.Configuration["Baza:ConnectionString"];
-var redisConnection = builder.Configuration["Redis:ConnectionString"];
-Console.WriteLine($"Mongo: {mongoConnection}");
-Console.WriteLine($"Redis: {redisConnection}");
+builder.Services.Configure<UstawieniaCache>(builder.Configuration.GetSection("Cache"));
+var adresMongo = builder.Configuration["Baza:ConnectionString"];
+var adresRedis = builder.Configuration["Redis:ConnectionString"];
+Console.WriteLine($"Mongo: {adresMongo}");
+Console.WriteLine($"Redis: {adresRedis}");
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"]!));
@@ -38,8 +38,8 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
 
 var app = builder.Build();
 
-await app.Services.GetRequiredService<LokaleService>().DodajStartoweAsync();
-await app.Services.GetRequiredService<LokaleService>().DodajLokaleAsync();
+await app.Services.GetRequiredService<LokaleService>().DodajSalonStartowyAsync();
+await app.Services.GetRequiredService<LokaleService>().DodajLokaleStartoweAsync();
 
 if (app.Environment.IsDevelopment())
 {
@@ -51,139 +51,139 @@ app.UseStaticFiles();
 app.UseCors();
 
 
-app.Use(async (kont, dalej) =>
+app.Use(async (kontekst, nastepny) =>
 {
-    kont.Response.Headers["X-Pid"] = Environment.ProcessId.ToString();
-    await dalej();
+    kontekst.Response.Headers["X-Pid"] = Environment.ProcessId.ToString();
+    await nastepny();
 });
 
 app.MapGet("/", () => "dziala");
 
-var grupa = app.MapGroup("/").AddEndpointFilter(async (kont, dalej) =>
+var grupa = app.MapGroup("/").AddEndpointFilter(async (kontekst, nastepny) =>
 {
-    var klId = kont.HttpContext.Request.Headers["X-Klient-Id"].ToString();
-    if (string.IsNullOrWhiteSpace(klId))
+    var klientId = kontekst.HttpContext.Request.Headers["X-Klient-Id"].ToString();
+    if (string.IsNullOrWhiteSpace(klientId))
     {
         return Results.Problem("Brak klientId", statusCode: 400);
     }
 
-    return await dalej(kont);
+    return await nastepny(kontekst);
 });
 
-grupa.MapGet("/lokale", async (string? typ, string? fraza, LokaleService lokSrv) =>
-    await lokSrv.SzukajAsync(typ, fraza));
+grupa.MapGet("/lokale", async (string? typ, string? fraza, LokaleService lokaleService) =>
+    await lokaleService.SzukajAsync(typ, fraza));
 
-grupa.MapGet("/lokale/{id}", async (string id, LokaleService lokSrv) =>
+grupa.MapGet("/lokale/{lokalId}", async (string lokalId, LokaleService lokaleService) =>
 {
-    var (ok, lok) = await lokSrv.PobierzCacheAsync(id);
-    if (!ok)
+    var (czyLokalPobrany, lokal) = await lokaleService.PobierzLokalAsync(lokalId);
+    if (!czyLokalPobrany)
     {
         return Results.Problem("Spróbuj ponownie", statusCode: 503);
     }
 
-    return lok is null ? Results.NotFound() : Results.Ok(lok);
+    return lokal is null ? Results.NotFound() : Results.Ok(lokal);
 });
 
-grupa.MapPost("/lokale", async (Lokal lok, LokaleService lokSrv) =>
-    await lokSrv.DodajAsync(lok)
-        ? Results.Created($"/lokale/{lok.Id}", lok)
+grupa.MapPost("/lokale", async (Lokal lokal, LokaleService lokaleService) =>
+    await lokaleService.DodajAsync(lokal)
+        ? Results.Created($"/lokale/{lokal.Id}", lokal)
         : Results.Problem("Lokal o takim id już istnieje", statusCode: 409));
 
-grupa.MapPut("/lokale/{id}", async (string id, Lokal lok, LokaleService lokSrv) =>
-    await lokSrv.EdytujAsync(id, lok)
-        ? Results.Ok(lok)
+grupa.MapPut("/lokale/{lokalId}", async (string lokalId, Lokal lokal, LokaleService lokaleService) =>
+    await lokaleService.EdytujAsync(lokalId, lokal)
+        ? Results.Ok(lokal)
         : Results.NotFound());
 
-grupa.MapGet("/lokale/{lokId}/pracownicy/{prId}/wolne", async (
-    string lokId,
-    string prId,
+grupa.MapGet("/lokale/{lokalId}/pracownicy/{pracownikId}/wolne", async (
+    string lokalId,
+    string pracownikId,
     string? data,
-    LokaleService lokSrv,
-    RezerwacjeService rezSrv) =>
+    LokaleService lokaleService,
+    RezerwacjeService rezerwacjeService) =>
 {
-    if (!Format.Data(data))
+    if (!Format.CzyPoprawnaData(data))
     {
         return Results.Problem("Data w formacie yyyy-MM-dd", statusCode: 400);
     }
 
-    var (okL, lok) = await lokSrv.PobierzCacheAsync(lokId);
-    if (!okL)
+    var (czyLokalPobrany, lokal) = await lokaleService.PobierzLokalAsync(lokalId);
+    if (!czyLokalPobrany)
     {
         return Results.Problem("Spróbuj ponownie", statusCode: 503);
     }
 
-    if (lok is null || !lok.Pracownicy.Any(x => x.Id == prId))
+    if (lokal is null || !lokal.Pracownicy.Any(pracownik => pracownik.Id == pracownikId))
     {
         return Results.NotFound();
     }
 
-    var (okW, wolne) = await rezSrv.WolneAsync(lok, prId, data!);
-    return okW
-        ? Results.Ok(wolne)
+    var (czyWolneGodzinyPobrane, wolneGodziny) = await rezerwacjeService.PobierzWolneGodzinyAsync(lokal, pracownikId, data!);
+    return czyWolneGodzinyPobrane
+        ? Results.Ok(wolneGodziny)
         : Results.Problem("Spróbuj ponownie", statusCode: 503);
 });
 
 grupa.MapPost("/rezerwacje", async (
-    [FromHeader(Name = "X-Klient-Id")] string? klId,
-    NowaRezerwacja nowa,
-    RezerwacjeService rezSrv) =>
+    [FromHeader(Name = "X-Klient-Id")] string? klientId,
+    NowaRezerwacja nowaRezerwacja,
+    RezerwacjeService rezerwacjeService) =>
 {
-    var wynik = await rezSrv.RezerwujAsync(klId!, nowa);
-    return wynik.Rez is null
-        ? Results.Problem(wynik.Blad, statusCode: wynik.Kod)
-        : Results.Created($"/rezerwacje/{Uri.EscapeDataString(wynik.Rez.Id)}", wynik.Rez);
+    var wynikRezerwacji = await rezerwacjeService.RezerwujAsync(klientId!, nowaRezerwacja);
+    return wynikRezerwacji.Rezerwacja is null
+        ? Results.Problem(wynikRezerwacji.Blad, statusCode: wynikRezerwacji.Kod)
+        : Results.Created($"/rezerwacje/{Uri.EscapeDataString(wynikRezerwacji.Rezerwacja.Id)}", wynikRezerwacji.Rezerwacja);
 });
 
 grupa.MapGet("/rezerwacje/moje", async (
-    [FromHeader(Name = "X-Klient-Id")] string? klId,
-    RezerwacjeService rezSrv) =>
+    [FromHeader(Name = "X-Klient-Id")] string? klientId,
+    RezerwacjeService rezerwacjeService) =>
 {
-    var (ok, moje) = await rezSrv.MojeAsync(klId!);
-    return ok
-        ? Results.Ok(moje)
+    var (czyRezerwacjePobrane, rezerwacjeKlienta) = await rezerwacjeService.PobierzRezerwacjeKlientaAsync(klientId!);
+    return czyRezerwacjePobrane
+        ? Results.Ok(rezerwacjeKlienta)
         : Results.Problem("Spróbuj ponownie", statusCode: 503);
 });
 
-app.MapGet("/test/blokada", async (BlokadaRedis blok) =>
+app.MapGet("/test/blokada", async (BlokadaRedis blokada) =>
 {
-    var token = await blok.BlokadaAsync("lock:test");
+    var token = await blokada.SprobujZalozycBlokadeAsync("lock:test");
     if (token is null)
     {
         return Results.Problem("Blokada zajęta", statusCode: 503);
     }
 
-    await blok.ZwolnienieAsync("lock:test", token);
+    await blokada.ZwolnijBlokadeAsync("lock:test", token);
     return Results.Ok(token);
 });
 
 
 app.MapDelete("/test/cache", async (string klucz, CacheRedis cache) =>
 {
-    await cache.UsunAsync(klucz);
+    await cache.UsunZCacheAsync(klucz);
     return Results.Ok(klucz);
 });
 
 
-app.MapGet("/test/monitor", async (HttpContext kont, IConfiguration konf) =>
+app.MapGet("/test/monitor", async (HttpContext kontekst, IConfiguration konfiguracja) =>
 {
-    kont.Response.ContentType = "text/event-stream";
-    var adr = konf["Redis:ConnectionString"]!.Split(',')[0].Split(':');
+    kontekst.Response.ContentType = "text/event-stream";
+    var adresRedisa = konfiguracja["Redis:ConnectionString"]!.Split(',')[0].Split(':');
     try
     {
-        using var tcp = new TcpClient();
-        await tcp.ConnectAsync(adr[0], int.Parse(adr[1]), kont.RequestAborted);
-        using var str = tcp.GetStream();
-        await str.WriteAsync("MONITOR\r\n"u8.ToArray(), kont.RequestAborted);
-        using var czyt = new StreamReader(str);
-        while (await czyt.ReadLineAsync(kont.RequestAborted) is { } lin)
+        using var polaczenie = new TcpClient();
+        await polaczenie.ConnectAsync(adresRedisa[0], int.Parse(adresRedisa[1]), kontekst.RequestAborted);
+        using var strumien = polaczenie.GetStream();
+        await strumien.WriteAsync("MONITOR\r\n"u8.ToArray(), kontekst.RequestAborted);
+        using var czytnik = new StreamReader(strumien);
+        while (await czytnik.ReadLineAsync(kontekst.RequestAborted) is { } linia)
         {
-            if (lin == "+OK" || lin.Contains("\"PING\"") || lin.Contains("\"INFO\""))
+            if (linia == "+OK" || linia.Contains("\"PING\"") || linia.Contains("\"INFO\""))
             {
                 continue;
             }
 
-            await kont.Response.WriteAsync($"data: {lin.TrimStart('+')}\n\n", kont.RequestAborted);
-            await kont.Response.Body.FlushAsync(kont.RequestAborted);
+            await kontekst.Response.WriteAsync($"data: {linia.TrimStart('+')}\n\n", kontekst.RequestAborted);
+            await kontekst.Response.Body.FlushAsync(kontekst.RequestAborted);
         }
     }
     catch (OperationCanceledException)
@@ -194,7 +194,7 @@ app.MapGet("/test/monitor", async (HttpContext kont, IConfiguration konf) =>
 /*
 app.MapGet("/test/cache", async (CacheRedis cache) =>
 {
-    var lista = await cache.PobierzAsync(
+    var lista = await cache.PobierzZCacheLubBazyAsync(
         "test:lista",
         "lock:test",
         TimeSpan.FromSeconds(60),
@@ -210,4 +210,4 @@ app.MapGet("/test/cache", async (CacheRedis cache) =>
 });
 
 */
-app.Run();
+app.Run();

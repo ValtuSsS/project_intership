@@ -8,85 +8,86 @@ namespace Rezerwacje.Api.Services;
 public class CacheRedis
 {
     private readonly IConnectionMultiplexer _redis;
-    private readonly BlokadaRedis _blok;
-    private readonly Cache _ust;
+    private readonly BlokadaRedis _blokada;
+    private readonly UstawieniaCache _ustawienia;
     private readonly ILogger<CacheRedis> _log;
 
     public CacheRedis(
         IConnectionMultiplexer redis,
-        BlokadaRedis blok,
-        IOptions<Cache> ust,
+        BlokadaRedis blokada,
+        IOptions<UstawieniaCache> ustawienia,
         ILogger<CacheRedis> log)
     {
         _redis = redis;
-        _blok = blok;
-        _ust = ust.Value;
+        _blokada = blokada;
+        _ustawienia = ustawienia.Value;
         _log = log;
     }
 
-    public async Task<(bool Ok, T? Wart)> PobierzAsync<T>(
-        string klucz,
-        string blokadaKl,
-        TimeSpan ttl,
-        Func<Task<T>> przep)
+    public async Task<(bool CzyPobrano, T? Dane)> PobierzZCacheLubBazyAsync<T>(
+        string kluczDanych,
+        string kluczBlokady,
+        TimeSpan czasZyciaCache,
+        Func<Task<T>> pobierzZBazy)
     {
-        var db = _redis.GetDatabase();
+        var bazaRedis = _redis.GetDatabase();
 
-        for (var i = 1; i <= _ust.ProbyOdczyt; i++)
+        for (var proba = 1; proba <= _ustawienia.ProbyOdczytuCache; proba++)
         {
-            var json = await db.StringGetAsync(klucz);
-            if (json.HasValue)
+            var wartoscZRedisa = await bazaRedis.StringGetAsync(kluczDanych);
+            if (wartoscZRedisa.HasValue)
             {
-                _log.LogInformation("[{Pid}] {Klucz}: redis", Environment.ProcessId, klucz);
-                return (true, JsonSerializer.Deserialize<T>(json.ToString()));
+                _log.LogInformation("[{Pid}] {Klucz}: redis", Environment.ProcessId, kluczDanych);
+                return (true, JsonSerializer.Deserialize<T>(wartoscZRedisa.ToString()));
             }
 
-            var token = await _blok.BlokadaAsync(blokadaKl);
+            var token = await _blokada.SprobujZalozycBlokadeAsync(kluczBlokady);
             if (token is not null)
             {
                 try
                 {
-                    json = await db.StringGetAsync(klucz);
-                    if (json.HasValue)
+                    wartoscZRedisa = await bazaRedis.StringGetAsync(kluczDanych);
+                    if (wartoscZRedisa.HasValue)
                     {
-                        _log.LogInformation("[{Pid}] {Klucz}: przed chwila zostal utworzony", Environment.ProcessId, klucz);
-                        return (true, JsonSerializer.Deserialize<T>(json.ToString()));
+                        _log.LogInformation("[{Pid}] {Klucz}: przed chwila zostal utworzony", Environment.ProcessId, kluczDanych);
+                        return (true, JsonSerializer.Deserialize<T>(wartoscZRedisa.ToString()));
                     }
 
-                    if (_ust.OpoznienieMs > 0)
+                    if (_ustawienia.TestoweOpoznienieMs > 0)
                     {
-                        _log.LogInformation("[{Pid}] {Klucz}: buduję, opóźnienie {Ms} ms", Environment.ProcessId, klucz, _ust.OpoznienieMs);
-                        await Task.Delay(_ust.OpoznienieMs);
+                        _log.LogInformation("[{Pid}] {Klucz}: buduję, opóźnienie {Ms} ms",
+                            Environment.ProcessId, kluczDanych, _ustawienia.TestoweOpoznienieMs);
+                        await Task.Delay(_ustawienia.TestoweOpoznienieMs);
                     }
 
-                    var wart = await przep();
-                    await db.StringSetAsync(klucz, JsonSerializer.Serialize(wart), ttl);
+                    var daneZBazy = await pobierzZBazy();
+                    await bazaRedis.StringSetAsync(kluczDanych, JsonSerializer.Serialize(daneZBazy), czasZyciaCache);
 
-                    _log.LogInformation("[{Pid}] {Klucz}: cosmos", Environment.ProcessId, klucz);
-                    return (true, wart);
+                    _log.LogInformation("[{Pid}] {Klucz}: cosmos", Environment.ProcessId, kluczDanych);
+                    return (true, daneZBazy);
                 }
                 finally
                 {
-                    await _blok.ZwolnienieAsync(blokadaKl, token);
+                    await _blokada.ZwolnijBlokadeAsync(kluczBlokady, token);
                 }
             }
 
-            _log.LogInformation("[{Pid}] {Klucz}: wisi blokada, czekam", Environment.ProcessId, klucz);
+            _log.LogInformation("[{Pid}] {Klucz}: wisi blokada, czekam", Environment.ProcessId, kluczDanych);
 
-            if (i < _ust.ProbyOdczyt)
+            if (proba < _ustawienia.ProbyOdczytuCache)
             {
-                await Task.Delay(_ust.PrzerwaMs);
+                await Task.Delay(_ustawienia.PrzerwaMiedzyProbamiMs);
             }
         }
 
         _log.LogError("[{Pid}] {Klucz}: blokada {Blok} nieudana po {Proby} próbach",
-            Environment.ProcessId, klucz, blokadaKl, _ust.ProbyOdczyt);
+            Environment.ProcessId, kluczDanych, kluczBlokady, _ustawienia.ProbyOdczytuCache);
         return (false, default);
     }
 
-    public async Task UsunAsync(params string[] klucze)
+    public async Task UsunZCacheAsync(params string[] klucze)
     {
-        var db = _redis.GetDatabase();
-        await db.KeyDeleteAsync(klucze.Select(k => (RedisKey)k).ToArray());
+        var bazaRedis = _redis.GetDatabase();
+        await bazaRedis.KeyDeleteAsync(klucze.Select(klucz => (RedisKey)klucz).ToArray());
     }
 }

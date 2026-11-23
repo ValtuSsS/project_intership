@@ -6,7 +6,7 @@ namespace Rezerwacje.Api.Services;
 
 public class BlokadaRedis
 {
-    private static readonly LuaScript SkryptLUA = LuaScript.Prepare(
+    private static readonly LuaScript SkryptZwolnieniaBlokadyLUA = LuaScript.Prepare(
         """
         if redis.call('GET', @key) == @token then
             return redis.call('DEL', @key)
@@ -15,63 +15,66 @@ public class BlokadaRedis
         """);
 
     private readonly IConnectionMultiplexer _redis;
-    private readonly Cache _ust;
+    private readonly UstawieniaCache _ustawienia;
     private readonly ILogger<BlokadaRedis> _log;
 
     public BlokadaRedis(
         IConnectionMultiplexer redis,
-        IOptions<Cache> ust,
+        IOptions<UstawieniaCache> ustawienia,
         ILogger<BlokadaRedis> log)
     {
         _redis = redis;
-        _ust = ust.Value;
+        _ustawienia = ustawienia.Value;
         _log = log;
     }
 
-    public async Task<string?> BlokadaAsync(string klucz)
+    public async Task<string?> SprobujZalozycBlokadeAsync(string kluczBlokady)
     {
-        var db = _redis.GetDatabase();
+        var bazaRedis = _redis.GetDatabase();
         var token = Guid.NewGuid().ToString("N");
-        var ttl = TimeSpan.FromMilliseconds(_ust.KluczTtlMls);
+        var czasBlokady = TimeSpan.FromMilliseconds(_ustawienia.CzasBlokadyMs);
 
-        return await db.StringSetAsync(klucz, token, ttl, When.NotExists) ? token : null;
+        return await bazaRedis.StringSetAsync(kluczBlokady, token, czasBlokady, When.NotExists) ? token : null;
     }
 
-    public async Task<string?> PetlaAsync(string klucz)
+    public async Task<string?> ZalozBlokadePetlaAsync(string kluczBlokady)
     {
-        for (var i = 1; i <= _ust.Proby; i++)
+        for (var proba = 1; proba <= _ustawienia.ProbyBlokadyRezerwacji; proba++)
         {
-            var token = await BlokadaAsync(klucz);
+            var token = await SprobujZalozycBlokadeAsync(kluczBlokady);
             if (token is not null)
             {
-                _log.LogInformation("[{Pid}] {Klucz}: blokada założona", Environment.ProcessId, klucz);
+                _log.LogInformation("[{Pid}] {Klucz}: blokada założona", Environment.ProcessId, kluczBlokady);
                 return token;
             }
 
             _log.LogInformation("[{Pid}] {Klucz}: wisi blokada, czekam ({Proba}/{Proby})",
-                Environment.ProcessId, klucz, i, _ust.Proby);
+                Environment.ProcessId, kluczBlokady, proba, _ustawienia.ProbyBlokadyRezerwacji);
 
-            if (i < _ust.Proby)
+            if (proba < _ustawienia.ProbyBlokadyRezerwacji)
             {
-                await Task.Delay(_ust.PrzerwaMs);
+                await Task.Delay(_ustawienia.PrzerwaMiedzyProbamiMs);
             }
         }
 
-        _log.LogError("[{Pid}] {Klucz}: blokada nieudana po {Proby} próbach", Environment.ProcessId, klucz, _ust.Proby);
+        _log.LogError("[{Pid}] {Klucz}: blokada nieudana po {Proby} próbach",
+            Environment.ProcessId, kluczBlokady, _ustawienia.ProbyBlokadyRezerwacji);
         return null;
     }
 
-    public async Task ZwolnienieAsync(string klucz, string token)
+    public async Task ZwolnijBlokadeAsync(string kluczBlokady, string token)
     {
-        var db = _redis.GetDatabase();
-        var wynik = (int)await db.ScriptEvaluateAsync(SkryptLUA, new { key = (RedisKey)klucz, token });
+        var bazaRedis = _redis.GetDatabase();
+        var wynikSkryptu = (int)await bazaRedis.ScriptEvaluateAsync(
+            SkryptZwolnieniaBlokadyLUA,
+            new { key = (RedisKey)kluczBlokady, token });
 
-        if (wynik == 0)
+        if (wynikSkryptu == 0)
         {
-            _log.LogError("[{Pid}] {Klucz}: blokada wygasła przed zwolnieniem", Environment.ProcessId, klucz);
+            _log.LogError("[{Pid}] {Klucz}: blokada wygasła przed zwolnieniem", Environment.ProcessId, kluczBlokady);
             return;
         }
 
-        _log.LogInformation("[{Pid}] {Klucz}: blokada zwolniona", Environment.ProcessId, klucz);
+        _log.LogInformation("[{Pid}] {Klucz}: blokada zwolniona", Environment.ProcessId, kluczBlokady);
     }
 }

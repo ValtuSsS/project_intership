@@ -1,0 +1,113 @@
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
+using Rezerwacje.Api.models;
+using System.Text.RegularExpressions;
+using MongoDB.Bson;
+
+namespace Rezerwacje.Api.Services;
+
+public class LokaleService
+{
+    private readonly IMongoCollection<Lokal> _lokale;
+    private readonly CacheRedis _cache;
+    private readonly UstawieniaCache _ustawienia;
+    private readonly ILogger<LokaleService> _log;
+
+    public LokaleService(
+        IMongoClient mongo,
+        IOptions<UstawieniaBazy> ustawieniaBazy,
+        IOptions<UstawieniaCache> ustawienia,
+        CacheRedis cache,
+        ILogger<LokaleService> log)
+    {
+        _lokale = mongo.GetDatabase(ustawieniaBazy.Value.Nazwa).GetCollection<Lokal>("lokale");
+        _cache = cache;
+        _ustawienia = ustawienia.Value;
+        _log = log;
+    }
+
+    public async Task<List<Lokal>> PobierzWszystkieAsync() =>
+        await _lokale.Find(_ => true).ToListAsync();
+
+    public async Task<List<Lokal>> SzukajAsync(string? typ, string? fraza)
+    {
+        var filtry = Builders<Lokal>.Filter;
+        var filtr = filtry.Empty;
+
+        if (!string.IsNullOrWhiteSpace(typ))
+        {
+            filtr &= filtry.Eq(lokal => lokal.Typ, typ);
+        }
+
+        if (!string.IsNullOrWhiteSpace(fraza))
+        {
+            filtr &= filtry.Regex(lokal => lokal.Nazwa, new BsonRegularExpression(Regex.Escape(fraza), "i"));
+        }
+
+        return await _lokale.Find(filtr).ToListAsync();
+    }
+
+    public async Task<Lokal?> PobierzLokalZBazyAsync(string lokalId) =>
+        await _lokale.Find(lokal => lokal.Id == lokalId).FirstOrDefaultAsync();
+
+    public async Task<(bool CzyPobrano, Lokal? Dane)> PobierzLokalAsync(string lokalId) =>
+        await _cache.PobierzZCacheLubBazyAsync<Lokal?>(
+            $"lokal:{lokalId}",
+            $"lock:lokal:{lokalId}",
+            TimeSpan.FromSeconds(_ustawienia.CzasCacheLokaluS),
+            () => PobierzLokalZBazyAsync(lokalId));
+
+    public async Task<bool> DodajAsync(Lokal lokal)
+    {
+        try
+        {
+            await _lokale.InsertOneAsync(lokal);
+            return true;
+        }
+        catch (MongoWriteException wyjatek) when (wyjatek.WriteError.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> EdytujAsync(string lokalId, Lokal lokal)
+    {
+        lokal.Id = lokalId;
+        var wynikZapisu = await _lokale.ReplaceOneAsync(zapisany => zapisany.Id == lokalId, lokal);
+        if (wynikZapisu.MatchedCount == 0)
+        {
+            return false;
+        }
+
+        await _cache.UsunZCacheAsync($"lokal:{lokalId}");
+        _log.LogInformation("[{Pid}] lokal:{Id}: edytowany, usunięty z redis", Environment.ProcessId, lokalId);
+        return true;
+    }
+
+    public async Task DodajSalonStartowyAsync()
+    {
+        try
+        {
+            await _lokale.InsertOneAsync(DaneStartowe.SalonStartowy());
+            _log.LogInformation("Dodano dane startowe");
+        }
+        catch (MongoWriteException wyjatek) when (wyjatek.WriteError.Category == ServerErrorCategory.DuplicateKey)
+        {
+            _log.LogInformation("Dane startowe są w bazie");
+        }
+    }
+
+    public async Task DodajLokaleStartoweAsync()
+    {
+        var liczbaDodanych = 0;
+        foreach (var lokal in DaneStartowe.LokaleStartowe())
+        {
+            if (await DodajAsync(lokal))
+            {
+                liczbaDodanych++;
+            }
+        }
+
+        _log.LogInformation("[{Pid}] Lokale startowe: dodano {LiczbaDodanych}", Environment.ProcessId, liczbaDodanych);
+    }
+}
