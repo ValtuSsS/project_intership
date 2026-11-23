@@ -14,5 +14,5 @@ public class Lokal
 
     public List<Pracownik> Pracownicy { get; set; } = [];
 
-    public List<GodzinyOtwarcia> Godziny { get; set; } = [];
+    public List<GodzinyOtwarcia> GodzinyOtwarcia { get; set; } = [];
 }

@@ -17,10 +17,14 @@ Console.WriteLine($"Mongo: {adresMongo}");
 Console.WriteLine($"Redis: {adresRedis}");
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"]!));
+{
+    return ConnectionMultiplexer.Connect(adresRedis!);
+});
 
 builder.Services.AddSingleton<IMongoClient>(_ =>
-    new MongoClient(builder.Configuration["Baza:ConnectionString"]));
+{
+    return new MongoClient(adresMongo);
+});
 
 builder.Services.AddSingleton<BlokadaRedis>();
 builder.Services.AddSingleton<CacheRedis>();
@@ -30,11 +34,16 @@ builder.Services.AddSingleton<RezerwacjeService>();
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
-    .WithOrigins("http://localhost:5126", "http://localhost:5127")
-    .AllowAnyHeader()
-    .AllowAnyMethod()
-    .WithExposedHeaders("X-Pid")));
+builder.Services.AddCors(opcje =>
+{
+    opcje.AddDefaultPolicy(zasady =>
+    {
+        zasady.WithOrigins("http://localhost:5126", "http://localhost:5127")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithExposedHeaders("X-Pid");
+    });
+});
 
 var app = builder.Build();
 
@@ -57,7 +66,10 @@ app.Use(async (kontekst, nastepny) =>
     await nastepny();
 });
 
-app.MapGet("/", () => "dziala");
+app.MapGet("/", () =>
+{
+    return "dziala";
+});
 
 var grupa = app.MapGroup("/").AddEndpointFilter(async (kontekst, nastepny) =>
 {
@@ -71,7 +83,10 @@ var grupa = app.MapGroup("/").AddEndpointFilter(async (kontekst, nastepny) =>
 });
 
 grupa.MapGet("/lokale", async (string? typ, string? fraza, LokaleService lokaleService) =>
-    await lokaleService.SzukajAsync(typ, fraza));
+{
+    var znalezioneLokale = await lokaleService.SzukajAsync(typ, fraza);
+    return Results.Ok(znalezioneLokale);
+});
 
 grupa.MapGet("/lokale/{lokalId}", async (string lokalId, LokaleService lokaleService) =>
 {
@@ -81,18 +96,35 @@ grupa.MapGet("/lokale/{lokalId}", async (string lokalId, LokaleService lokaleSer
         return Results.Problem("Spróbuj ponownie", statusCode: 503);
     }
 
-    return lokal is null ? Results.NotFound() : Results.Ok(lokal);
+    if (lokal is null)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Ok(lokal);
 });
 
 grupa.MapPost("/lokale", async (Lokal lokal, LokaleService lokaleService) =>
-    await lokaleService.DodajAsync(lokal)
-        ? Results.Created($"/lokale/{lokal.Id}", lokal)
-        : Results.Problem("Lokal o takim id już istnieje", statusCode: 409));
+{
+    var czyDodany = await lokaleService.DodajAsync(lokal);
+    if (!czyDodany)
+    {
+        return Results.Problem("Lokal o takim id już istnieje", statusCode: 409);
+    }
+
+    return Results.Created($"/lokale/{lokal.Id}", lokal);
+});
 
 grupa.MapPut("/lokale/{lokalId}", async (string lokalId, Lokal lokal, LokaleService lokaleService) =>
-    await lokaleService.EdytujAsync(lokalId, lokal)
-        ? Results.Ok(lokal)
-        : Results.NotFound());
+{
+    var czyEdytowany = await lokaleService.EdytujAsync(lokalId, lokal);
+    if (!czyEdytowany)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Ok(lokal);
+});
 
 grupa.MapGet("/lokale/{lokalId}/pracownicy/{pracownikId}/wolne", async (
     string lokalId,
@@ -118,9 +150,12 @@ grupa.MapGet("/lokale/{lokalId}/pracownicy/{pracownikId}/wolne", async (
     }
 
     var (czyWolneGodzinyPobrane, wolneGodziny) = await rezerwacjeService.PobierzWolneGodzinyAsync(lokal, pracownikId, data!);
-    return czyWolneGodzinyPobrane
-        ? Results.Ok(wolneGodziny)
-        : Results.Problem("Spróbuj ponownie", statusCode: 503);
+    if (!czyWolneGodzinyPobrane)
+    {
+        return Results.Problem("Spróbuj ponownie", statusCode: 503);
+    }
+
+    return Results.Ok(wolneGodziny);
 });
 
 grupa.MapPost("/rezerwacje", async (
@@ -129,9 +164,13 @@ grupa.MapPost("/rezerwacje", async (
     RezerwacjeService rezerwacjeService) =>
 {
     var wynikRezerwacji = await rezerwacjeService.RezerwujAsync(klientId!, nowaRezerwacja);
-    return wynikRezerwacji.Rezerwacja is null
-        ? Results.Problem(wynikRezerwacji.Blad, statusCode: wynikRezerwacji.Kod)
-        : Results.Created($"/rezerwacje/{Uri.EscapeDataString(wynikRezerwacji.Rezerwacja.Id)}", wynikRezerwacji.Rezerwacja);
+    if (wynikRezerwacji.Rezerwacja is null)
+    {
+        return Results.Problem(wynikRezerwacji.Blad, statusCode: wynikRezerwacji.Kod);
+    }
+
+    var adresRezerwacji = $"/rezerwacje/{Uri.EscapeDataString(wynikRezerwacji.Rezerwacja.Id)}";
+    return Results.Created(adresRezerwacji, wynikRezerwacji.Rezerwacja);
 });
 
 grupa.MapGet("/rezerwacje/moje", async (
@@ -139,9 +178,12 @@ grupa.MapGet("/rezerwacje/moje", async (
     RezerwacjeService rezerwacjeService) =>
 {
     var (czyRezerwacjePobrane, rezerwacjeKlienta) = await rezerwacjeService.PobierzRezerwacjeKlientaAsync(klientId!);
-    return czyRezerwacjePobrane
-        ? Results.Ok(rezerwacjeKlienta)
-        : Results.Problem("Spróbuj ponownie", statusCode: 503);
+    if (!czyRezerwacjePobrane)
+    {
+        return Results.Problem("Spróbuj ponownie", statusCode: 503);
+    }
+
+    return Results.Ok(rezerwacjeKlienta);
 });
 
 app.MapGet("/test/blokada", async (BlokadaRedis blokada) =>

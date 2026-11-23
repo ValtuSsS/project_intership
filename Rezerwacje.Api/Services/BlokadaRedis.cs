@@ -34,7 +34,13 @@ public class BlokadaRedis
         var token = Guid.NewGuid().ToString("N");
         var czasBlokady = TimeSpan.FromMilliseconds(_ustawienia.CzasBlokadyMs);
 
-        return await bazaRedis.StringSetAsync(kluczBlokady, token, czasBlokady, When.NotExists) ? token : null;
+        var czyZalozona = await bazaRedis.StringSetAsync(kluczBlokady, token, czasBlokady, When.NotExists);
+        if (!czyZalozona)
+        {
+            return null;
+        }
+
+        return token;
     }
 
     public async Task<string?> ZalozBlokadePetlaAsync(string kluczBlokady)

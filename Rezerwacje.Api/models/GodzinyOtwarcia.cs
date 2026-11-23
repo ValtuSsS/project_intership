@@ -2,8 +2,9 @@ namespace Rezerwacje.Api.models;
 
 public class GodzinyOtwarcia
 {
-    public DayOfWeek Dzien { get; set; }
-    public string Od {get; set;} = null!;
-    public string Do {get; set;}= null! ;
+    public DayOfWeek DzienTygodnia { get; set; }
 
+    public string OdGodziny { get; set; } = null!;
+
+    public string DoGodziny { get; set; } = null!;
 }

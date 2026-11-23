@@ -26,8 +26,10 @@ public class LokaleService
         _log = log;
     }
 
-    public async Task<List<Lokal>> PobierzWszystkieAsync() =>
-        await _lokale.Find(_ => true).ToListAsync();
+    public async Task<List<Lokal>> PobierzWszystkieAsync()
+    {
+        return await _lokale.Find(_ => true).ToListAsync();
+    }
 
     public async Task<List<Lokal>> SzukajAsync(string? typ, string? fraza)
     {
@@ -47,15 +49,23 @@ public class LokaleService
         return await _lokale.Find(filtr).ToListAsync();
     }
 
-    public async Task<Lokal?> PobierzLokalZBazyAsync(string lokalId) =>
-        await _lokale.Find(lokal => lokal.Id == lokalId).FirstOrDefaultAsync();
+    public async Task<Lokal?> PobierzLokalZBazyAsync(string lokalId)
+    {
+        return await _lokale.Find(lokal => lokal.Id == lokalId).FirstOrDefaultAsync();
+    }
 
-    public async Task<(bool CzyPobrano, Lokal? Dane)> PobierzLokalAsync(string lokalId) =>
-        await _cache.PobierzZCacheLubBazyAsync<Lokal?>(
-            $"lokal:{lokalId}",
-            $"lock:lokal:{lokalId}",
-            TimeSpan.FromSeconds(_ustawienia.CzasCacheLokaluS),
+    public async Task<(bool CzyPobrano, Lokal? Dane)> PobierzLokalAsync(string lokalId)
+    {
+        var kluczLokalu = $"lokal:{lokalId}";
+        var kluczBlokady = $"lock:lokal:{lokalId}";
+        var czasZyciaCache = TimeSpan.FromSeconds(_ustawienia.CzasCacheLokaluS);
+
+        return await _cache.PobierzZCacheLubBazyAsync<Lokal?>(
+            kluczLokalu,
+            kluczBlokady,
+            czasZyciaCache,
             () => PobierzLokalZBazyAsync(lokalId));
+    }
 
     public async Task<bool> DodajAsync(Lokal lokal)
     {

@@ -31,19 +31,31 @@ public class RezerwacjeService
         _log = log;
     }
 
-    public async Task<(bool CzyPobrano, List<string>? Dane)> PobierzWolneGodzinyAsync(Lokal lokal, string pracownikId, string data) =>
-        await _cache.PobierzZCacheLubBazyAsync(
-            $"wolne:{lokal.Id}:{pracownikId}:{data}",
-            $"lock:{lokal.Id}:{pracownikId}:{data}",
-            TimeSpan.FromSeconds(_ustawienia.CzasCacheWolnychGodzinS),
-            () => PoliczWolneGodzinyZBazyAsync(lokal, pracownikId, data));
+    public async Task<(bool CzyPobrano, List<string>? Dane)> PobierzWolneGodzinyAsync(Lokal lokal, string pracownikId, string data)
+    {
+        var kluczWolnychGodzin = $"wolne:{lokal.Id}:{pracownikId}:{data}";
+        var kluczBlokady = $"lock:{lokal.Id}:{pracownikId}:{data}";
+        var czasZyciaCache = TimeSpan.FromSeconds(_ustawienia.CzasCacheWolnychGodzinS);
 
-    public async Task<(bool CzyPobrano, List<Rezerwacja>? Dane)> PobierzRezerwacjeKlientaAsync(string klientId) =>
-        await _cache.PobierzZCacheLubBazyAsync(
-            $"rezerwacje:klient:{klientId}",
-            $"rebuild:klient:{klientId}",
-            TimeSpan.FromSeconds(_ustawienia.CzasCacheRezerwacjiKlientaS),
+        return await _cache.PobierzZCacheLubBazyAsync(
+            kluczWolnychGodzin,
+            kluczBlokady,
+            czasZyciaCache,
+            () => PoliczWolneGodzinyZBazyAsync(lokal, pracownikId, data));
+    }
+
+    public async Task<(bool CzyPobrano, List<Rezerwacja>? Dane)> PobierzRezerwacjeKlientaAsync(string klientId)
+    {
+        var kluczRezerwacjiKlienta = $"rezerwacje:klient:{klientId}";
+        var kluczBlokady = $"rebuild:klient:{klientId}";
+        var czasZyciaCache = TimeSpan.FromSeconds(_ustawienia.CzasCacheRezerwacjiKlientaS);
+
+        return await _cache.PobierzZCacheLubBazyAsync(
+            kluczRezerwacjiKlienta,
+            kluczBlokady,
+            czasZyciaCache,
             () => PobierzRezerwacjeKlientaZBazyAsync(klientId));
+    }
 
     public async Task<WynikRezerwacji> RezerwujAsync(string klientId, NowaRezerwacja nowaRezerwacja)
     {
@@ -85,7 +97,7 @@ public class RezerwacjeService
                 PracownikId = nowaRezerwacja.PracownikId,
                 Data = nowaRezerwacja.Data,
                 Godzina = nowaRezerwacja.Godzina,
-                Utworzono = DateTime.UtcNow
+                DataUtworzenia = DateTime.UtcNow
             };
 
             try
@@ -122,14 +134,14 @@ public class RezerwacjeService
     private async Task<List<string>> PoliczWolneGodzinyZBazyAsync(Lokal lokal, string pracownikId, string data)
     {
         var dzienTygodnia = DateOnly.ParseExact(data, "yyyy-MM-dd", CultureInfo.InvariantCulture).DayOfWeek;
-        var godzinyOtwarciaWDniu = lokal.Godziny.FirstOrDefault(godziny => godziny.Dzien == dzienTygodnia);
+        var godzinyOtwarciaWDniu = lokal.GodzinyOtwarcia.FirstOrDefault(godziny => godziny.DzienTygodnia == dzienTygodnia);
         if (godzinyOtwarciaWDniu is null)
         {
             return [];
         }
 
-        var godzinaOtwarcia = TimeOnly.ParseExact(godzinyOtwarciaWDniu.Od, "HH:mm", CultureInfo.InvariantCulture).Hour;
-        var godzinaZamkniecia = TimeOnly.ParseExact(godzinyOtwarciaWDniu.Do, "HH:mm", CultureInfo.InvariantCulture).Hour;
+        var godzinaOtwarcia = TimeOnly.ParseExact(godzinyOtwarciaWDniu.OdGodziny, "HH:mm", CultureInfo.InvariantCulture).Hour;
+        var godzinaZamkniecia = TimeOnly.ParseExact(godzinyOtwarciaWDniu.DoGodziny, "HH:mm", CultureInfo.InvariantCulture).Hour;
 
         var zajeteGodziny = await _rezerwacje
             .Find(rezerwacja => rezerwacja.LokalId == lokal.Id && rezerwacja.PracownikId == pracownikId && rezerwacja.Data == data)

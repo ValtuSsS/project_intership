@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+wA.txt
+wB.txt
+odczyt.html
+rezerw.html

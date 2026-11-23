@@ -178,8 +178,8 @@ function usun(klucz) {
 function lokalN() {
   const prac = pole("nPr").split(",").map(x => x.trim()).filter(x => x)
     .map((imie, i) => ({ Id: "p" + (i + 1), Imie: imie }));
-  const godz = [1, 2, 3, 4, 5].map(d => ({ Dzien: d, Od: pole("nOd"), Do: pole("nDo") }));
-  return { Id: pole("nId"), Nazwa: pole("nNaz"), Typ: pole("nTyp"), Pracownicy: prac, Godziny: godz };
+  const godz = [1, 2, 3, 4, 5].map(d => ({ DzienTygodnia: d, OdGodziny: pole("nOd"), DoGodziny: pole("nDo") }));
+  return { Id: pole("nId"), Nazwa: pole("nNaz"), Typ: pole("nTyp"), Pracownicy: prac, GodzinyOtwarcia: godz };
 }
 
 function pobN(host) {

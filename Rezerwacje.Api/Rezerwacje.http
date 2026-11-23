@@ -79,33 +79,33 @@ Content-Type: application/json
 ### Wolne godziny bez klientId
 GET {{hostA}}/lokale/lok1/pracownicy/p1/wolne?data=2026-12-16
 
-### Dodanie lokalu lok2
+### Dodanie lokalu lok18
 POST {{hostA}}/lokale
 Content-Type: application/json
 X-Klient-Id: k1
 
 {
-  "id": "lok2",
-  "nazwa": "Salon Fryzjerski Anna",
+  "id": "lok18",
+  "nazwa": "Salon Testowy",
   "typ": "fryzjer",
-  "pracownicy": [ { "id": "p3", "imie": "Anna" } ],
-  "godziny": [ { "dzien": 1, "od": "10:00", "do": "18:00" } ]
+  "pracownicy": [ { "id": "p1", "imie": "Jan" } ],
+  "godzinyOtwarcia": [ { "dzienTygodnia": 1, "odGodziny": "10:00", "doGodziny": "18:00" } ]
 }
 
-### Lokal lok2 przez cache
-GET {{hostA}}/lokale/lok2
+### Lokal lok18 przez cache
+GET {{hostA}}/lokale/lok18
 X-Klient-Id: k1
 
-### Edycja adresu lok2
-PUT {{hostA}}/lokale/lok2
+### Edycja lokalu lok18
+PUT {{hostA}}/lokale/lok18
 Content-Type: application/json
 X-Klient-Id: k1
 
 {
-  "nazwa": "Salon Fryzjerski Anna",
+  "nazwa": "Salon Testowy po edycji",
   "typ": "fryzjer",
-  "pracownicy": [ { "id": "p3", "imie": "Anna" } ],
-  "godziny": [ { "dzien": 1, "od": "10:00", "do": "18:00" } ]
+  "pracownicy": [ { "id": "p1", "imie": "Jan" } ],
+  "godzinyOtwarcia": [ { "dzienTygodnia": 1, "odGodziny": "10:00", "doGodziny": "18:00" } ]
 }
 
 ### Moje rezerwacje k1

@@ -19,5 +19,5 @@ public class Rezerwacja
 
     public string Godzina { get; set; } = null!;
 
-    public DateTime Utworzono { get; set; }
-}
+    public DateTime DataUtworzenia { get; set; }
+}
