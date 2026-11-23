@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Rezerwacje</title>
+<style>
+body { font-family: "Segoe UI", Arial, sans-serif; margin: 20px; background: #f4f4f4; color: #222; }
+h2 { margin: 0 0 12px; }
+.uklad { display: flex; gap: 16px; align-items: flex-start; }
+.lewa { flex: 0 0 560px; }
+.prawa { flex: 1; min-width: 0; }
+fieldset { background: #fff; border: 1px solid #ccc; border-radius: 6px; margin: 0 0 12px; padding: 10px 14px; }
+legend { font-weight: 600; }
+label { display: inline-block; margin: 2px 14px 2px 0; }
+input { width: 100px; padding: 3px; }
+.opis { font-size: 12px; color: #666; margin: 4px 0 0; }
+table { border-collapse: collapse; width: 100%; }
+td { padding: 3px 4px; }
+td:first-child { width: 150px; }
+button { padding: 5px 10px; cursor: pointer; }
+#log, #mon { background: #1e1e1e; color: #ddd; font-family: Consolas, monospace; font-size: 13px; padding: 10px; overflow: auto; white-space: pre-wrap; border-radius: 6px; }
+#log { height: 330px; margin-bottom: 10px; }
+#mon { height: 330px; }
+.pasek { margin: 6px 0; }
+.lua { color: #8a8a8a; }
+.ok { color: #7ccf7c; }
+.blad { color: #f07070; }
+.inf { color: #a0a0a0; }
+.sep { color: #e0c060; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="uklad">
+<div class="lewa">
+
+<fieldset>
+<legend>Kto pyta</legend>
+<label>Klient wysyłany przez A <input id="klA" value="k1"></label>
+<label>Klient wysyłany przez B <input id="klB" value="k2"></label>
+</fieldset>
+
+<fieldset>
+<legend>Termin</legend>
+<label>Lokal <input id="lok" value="lok1"></label>
+<label>Pracownik <input id="pr" value="p1"></label>
+<label>Data <input id="dt" value="2026-12-16"></label>
+<label>Godzina <input id="gz" value="10:00"></label>
+</fieldset>
+
+<fieldset>
+<legend>Zapytania</legend>
+<table>
+<tr><td>Pobierz lokal</td>
+<td><button onclick="lokal(A)">A</button> <button onclick="lokal(B)">B</button></td></tr>
+<tr><td>Wolne godziny</td>
+<td><button onclick="wolne(A)">A</button> <button onclick="wolne(B)">B</button> <button onclick="wyscWol()">A i B naraz</button></td></tr>
+<tr><td>Rezerwuj</td>
+<td><button onclick="rezerw(A)">A</button> <button onclick="rezerw(B)">B</button> <button onclick="wyscRez()">A i B naraz</button></td></tr>
+<tr><td>Moje rezerwacje</td>
+<td><button onclick="moje(A)">A</button> <button onclick="moje(B)">B</button></td></tr>
+</table>
+</fieldset>
+
+<fieldset>
+<legend>Nowy lub edytowany lokal</legend>
+<label>Id <input id="nId" value="lok18"></label>
+<label>Nazwa <input id="nNaz" value="Salon Testowy" style="width:160px"></label>
+<label>Typ <input id="nTyp" value="fryzjer"></label>
+<label>Pracownicy <input id="nPr" value="Jan, Ewa" style="width:160px"></label>
+<label>Pn-Pt od <input id="nOd" value="09:00" style="width:60px"></label>
+<label>do <input id="nDo" value="17:00" style="width:60px"></label>
+<table>
+<tr><td>Pobierz ten lokal</td>
+<td><button onclick="pobN(A)">A</button> <button onclick="pobN(B)">B</button></td></tr>
+<tr><td>Dodaj (POST)</td>
+<td><button onclick="dodajN(A)">A</button> <button onclick="dodajN(B)">B</button></td></tr>
+<tr><td>Edytuj (PUT)</td>
+<td><button onclick="edytN(A)">A</button> <button onclick="edytN(B)">B</button></td></tr>
+</table>
+</fieldset>
+
+<fieldset>
+<legend>Cache</legend>
+<button onclick="usun(`wolne:${pole('lok')}:${pole('pr')}:${pole('dt')}`)">Usuń wolne godziny z Redisa</button>
+<button onclick="usun(`lokal:${pole('lok')}`)">Usuń lokal z Redisa</button>
+<button onclick="usun(`lokal:${pole('nId')}`)">Usuń nowy lokal z Redisa</button>
+</fieldset>
+
+</div>
+<div class="prawa">
+<div class="pasek"><b>Odpowiedzi</b> <button onclick="log.textContent = ''">Wyczyść</button></div>
+<div id="log"></div>
+<div class="pasek"><b>Redis MONITOR</b>
+<button onclick="monStart()">Włącz</button>
+<button onclick="monStop()">Wyłącz</button>
+<button onclick="mon.textContent = ''">Wyczyść</button>
+<span id="monStan" class="opis">wyłączony</span></div>
+<div id="mon"></div>
+</div>
+</div>
+
+<script>
+const A = "http://localhost:5126";
+const B = "http://localhost:5127";
+const log = document.getElementById("log");
+const pole = id => document.getElementById(id).value.trim();
+const klDla = host => host === A ? pole("klA") : pole("klB");
+
+function wpis(tekst, klasa) {
+  const lin = document.createElement("div");
+  lin.className = klasa;
+  lin.textContent = tekst;
+  log.appendChild(lin);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function wyslij(host, metoda, sciez, klId, cialo) {
+  const nagl = {};
+  if (klId) nagl["X-Klient-Id"] = klId;
+  if (cialo) nagl["Content-Type"] = "application/json";
+  const inst = host === A ? "A" : "B";
+  const pocz = performance.now();
+  try {
+    const odp = await fetch(host + sciez, {
+      method: metoda,
+      headers: nagl,
+      body: cialo ? JSON.stringify(cialo) : undefined
+    });
+    const tekst = await odp.text();
+    const ms = Math.round(performance.now() - pocz);
+    const czas = new Date().toLocaleTimeString("pl-PL");
+    const pid = odp.headers.get("X-Pid") ?? "?";
+    wpis(`${czas}  ${inst} (PID ${pid})  ${metoda} ${sciez}  [klient: ${klId || "brak"}]  ->  ${odp.status}  (${ms} ms)`, odp.ok ? "ok" : "blad");
+    wpis("    " + tekst, "inf");
+  } catch (e) {
+    wpis(`${inst}  ${metoda} ${sciez}  ->  brak połączenia, czy instancja działa?`, "blad");
+  }
+}
+
+const sciezWol = dt => `/lokale/${pole("lok")}/pracownicy/${pole("pr")}/wolne?data=${dt ?? pole("dt")}`;
+
+function lokal(host) {
+  return wyslij(host, "GET", `/lokale/${pole("lok")}`, klDla(host));
+}
+
+function wolne(host) {
+  return wyslij(host, "GET", sciezWol(), klDla(host));
+}
+
+function rezerw(host, gz) {
+  return wyslij(host, "POST", "/rezerwacje", klDla(host), {
+    LokalId: pole("lok"),
+    PracownikId: pole("pr"),
+    Data: pole("dt"),
+    Godzina: gz ?? pole("gz")
+  });
+}
+
+function moje(host) {
+  return wyslij(host, "GET", "/rezerwacje/moje", klDla(host));
+}
+
+async function wyscWol() {
+  wpis("--- wyścig: wolne godziny, A i B naraz ---", "sep");
+  await Promise.all([wolne(A), wolne(B)]);
+}
+
+async function wyscRez() {
+  wpis(`--- wyścig: rezerwacja ${pole("gz")}, A i B naraz ---`, "sep");
+  await Promise.all([rezerw(A), rezerw(B)]);
+}
+
+function usun(klucz) {
+  return wyslij(A, "DELETE", "/test/cache?klucz=" + encodeURIComponent(klucz), null);
+}
+
+
+function lokalN() {
+  const prac = pole("nPr").split(",").map(x => x.trim()).filter(x => x)
+    .map((imie, i) => ({ Id: "p" + (i + 1), Imie: imie }));
+  const godz = [1, 2, 3, 4, 5].map(d => ({ Dzien: d, Od: pole("nOd"), Do: pole("nDo") }));
+  return { Id: pole("nId"), Nazwa: pole("nNaz"), Typ: pole("nTyp"), Pracownicy: prac, Godziny: godz };
+}
+
+function pobN(host) {
+  return wyslij(host, "GET", `/lokale/${pole("nId")}`, klDla(host));
+}
+
+function dodajN(host) {
+  return wyslij(host, "POST", "/lokale", klDla(host), lokalN());
+}
+
+function edytN(host) {
+  return wyslij(host, "PUT", `/lokale/${pole("nId")}`, klDla(host), lokalN());
+}
+
+const mon = document.getElementById("mon");
+const kolory = ["#7cc4ff", "#ffb86c", "#c3a6ff", "#7ccf7c", "#ff7c9c"];
+const porty = {};
+let zrodlo = null;
+
+function kolor(lin) {
+  if (lin.includes("[0 lua]")) return null;
+  const traf = lin.match(/:(\d+)\]/);
+  if (!traf) return null;
+  if (!(traf[1] in porty)) porty[traf[1]] = kolory[Object.keys(porty).length % kolory.length];
+  return porty[traf[1]];
+}
+
+function monStart() {
+  if (zrodlo) return;
+  zrodlo = new EventSource(A + "/test/monitor");
+  zrodlo.onopen = () => document.getElementById("monStan").textContent = "włączony";
+  zrodlo.onmessage = e => {
+    const lin = document.createElement("div");
+    lin.textContent = e.data;
+    const kol = kolor(e.data);
+    if (kol) lin.style.color = kol; else lin.className = "lua";
+    mon.appendChild(lin);
+    mon.scrollTop = mon.scrollHeight;
+  };
+  zrodlo.onerror = () => document.getElementById("monStan").textContent = "brak połączenia z /test/monitor";
+}
+
+function monStop() {
+  if (zrodlo) zrodlo.close();
+  zrodlo = null;
+  document.getElementById("monStan").textContent = "wyłączony";
+}
+</script>
+</body>
+</html>

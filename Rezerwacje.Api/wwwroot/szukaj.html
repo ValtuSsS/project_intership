@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Lokale</title>
+<style>
+body { font-family: "Segoe UI", Arial, sans-serif; margin: 20px; background: #f4f4f4; color: #222; }
+.pasek { background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+label { white-space: nowrap; }
+input { padding: 4px; }
+input { width: 120px; }
+button { padding: 5px 14px; cursor: pointer; }
+#stan { font-family: Consolas, monospace; font-size: 13px; margin-bottom: 6px; }
+.ok { color: #2e7d32; }
+.blad { color: #c62828; }
+pre { background: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; font-size: 13px; line-height: 1.45; padding: 14px; border-radius: 6px; overflow: auto; max-height: 75vh; margin: 0; }
+.kl { color: #9cdcfe; }
+.tx { color: #ce9178; }
+.lb { color: #b5cea8; }
+.bo { color: #569cd6; }
+.nu { color: #808080; }
+</style>
+</head>
+<body>
+
+<div class="pasek">
+<label>Typ <input id="typ"></label>
+<label>Nazwa zawiera <input id="fr"></label>
+<button onclick="szukaj()">Szukaj</button>
+<label><input type="checkbox" id="naZyw" style="width:auto"> na żywo</label>
+</div>
+
+<div id="stan"></div>
+<pre id="wyn"></pre>
+
+<script>
+const pole = id => document.getElementById(id).value.trim();
+const stan = document.getElementById("stan");
+const wyn = document.getElementById("wyn");
+let zegar = null;
+
+function koloruj(json) {
+  const bez = json.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return bez.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(\.\d+)?([eE][+-]?\d+)?)/g, m => {
+    let kls = "lb";
+    if (m.startsWith('"')) kls = m.trimEnd().endsWith(":") ? "kl" : "tx";
+    else if (m === "true" || m === "false") kls = "bo";
+    else if (m === "null") kls = "nu";
+    return `<span class="${kls}">${m}</span>`;
+  });
+}
+
+async function szukaj() {
+  const par = new URLSearchParams();
+  if (pole("typ")) par.set("typ", pole("typ"));
+  if (pole("fr")) par.set("fraza", pole("fr"));
+  const zap = par.toString();
+  const sciez = "/lokale" + (zap ? "?" + zap : "");
+  const pocz = performance.now();
+  try {
+    const odp = await fetch(sciez, { headers: { "X-Klient-Id": "k1" } });
+    const tekst = await odp.text();
+    const ms = Math.round(performance.now() - pocz);
+    const pid = odp.headers.get("X-Pid") ?? "?";
+    let dane;
+    try { dane = JSON.parse(tekst); } catch { dane = tekst; }
+    const ile = Array.isArray(dane) ? `, lokali: ${dane.length}` : "";
+    stan.className = odp.ok ? "ok" : "blad";
+    stan.textContent = `GET ${sciez}  ->  ${odp.status}  (${ms} ms, PID ${pid}${ile})`;
+    wyn.innerHTML = typeof dane === "string" ? dane : koloruj(JSON.stringify(dane, null, 2));
+  } catch (e) {
+    stan.className = "blad";
+    stan.textContent = "brak połączenia";
+    wyn.textContent = "";
+  }
+}
+
+function naZywo() {
+  if (!document.getElementById("naZyw").checked) return;
+  clearTimeout(zegar);
+  zegar = setTimeout(szukaj, 300);
+}
+
+for (const id of ["typ", "fr"]) {
+  const el = document.getElementById(id);
+  el.addEventListener("keydown", e => { if (e.key === "Enter") szukaj(); });
+  el.addEventListener("input", naZywo);
+}
+
+szukaj();
+</script>
+</body>
+</html>

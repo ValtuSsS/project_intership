@@ -1,0 +1,8 @@
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+Date: Tue, 17 Nov 2026 09:52:26 GMT
+Server: Kestrel
+Location: /rezerwacje/lok1%7Cp1%7C2026-12-16%7C11%3A00
+Transfer-Encoding: chunked
+
+{"id":"lok1|p1|2026-12-16|11:00","klientId":"k1","lokalId":"lok1","pracownikId":"p1","data":"2026-12-16","godzina":"11:00","utworzono":"2026-11-17T09:52:26.0546114Z"}
