@@ -1,6 +1,6 @@
 using System;
 
-using Rezerwacje.Api.models;
+using Rezerwacje.Api.Models;
 using static System.DayOfWeek;
 
 namespace Rezerwacje.Api.Services;

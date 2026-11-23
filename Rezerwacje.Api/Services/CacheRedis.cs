@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Options;
-using Rezerwacje.Api.models;
+using Rezerwacje.Api.Models;
 using StackExchange.Redis;
 
 namespace Rezerwacje.Api.Services;
@@ -55,7 +55,7 @@ public class CacheRedis
 
                     if (_ustawienia.TestoweOpoznienieMs > 0)
                     {
-                        _log.LogInformation("[{Pid}] {Klucz}: buduję, opóźnienie {Ms} ms",
+                        _log.LogInformation("[{Pid}] {Klucz}: buduję, opóźnienie {OpoznienieMs} ms",
                             Environment.ProcessId, kluczDanych, _ustawienia.TestoweOpoznienieMs);
                         await Task.Delay(_ustawienia.TestoweOpoznienieMs);
                     }
@@ -80,7 +80,7 @@ public class CacheRedis
             }
         }
 
-        _log.LogError("[{Pid}] {Klucz}: blokada {Blok} nieudana po {Proby} próbach",
+        _log.LogError("[{Pid}] {Klucz}: blokada {KluczBlokady} nieudana po {LiczbaProb} próbach",
             Environment.ProcessId, kluczDanych, kluczBlokady, _ustawienia.ProbyOdczytuCache);
         return (false, default);
     }

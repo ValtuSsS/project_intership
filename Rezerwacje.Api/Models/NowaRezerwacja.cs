@@ -1,4 +1,4 @@
-namespace Rezerwacje.Api.models;
+namespace Rezerwacje.Api.Models;
 
 public record NowaRezerwacja(
     string LokalId,

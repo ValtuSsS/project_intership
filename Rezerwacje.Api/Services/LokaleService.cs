@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using Rezerwacje.Api.models;
+using Rezerwacje.Api.Models;
 using System.Text.RegularExpressions;
 using MongoDB.Bson;
 
@@ -28,22 +28,22 @@ public class LokaleService
 
     public async Task<List<Lokal>> PobierzWszystkieAsync()
     {
-        return await _lokale.Find(_ => true).ToListAsync();
+        return await _lokale.Find(lokal => true).ToListAsync();
     }
 
     public async Task<List<Lokal>> SzukajAsync(string? typ, string? fraza)
     {
-        var filtry = Builders<Lokal>.Filter;
-        var filtr = filtry.Empty;
+        var tworzenieFiltru = Builders<Lokal>.Filter;
+        var filtr = tworzenieFiltru.Empty;
 
         if (!string.IsNullOrWhiteSpace(typ))
         {
-            filtr &= filtry.Eq(lokal => lokal.Typ, typ);
+            filtr &= tworzenieFiltru.Eq(lokal => lokal.Typ, typ);
         }
 
         if (!string.IsNullOrWhiteSpace(fraza))
         {
-            filtr &= filtry.Regex(lokal => lokal.Nazwa, new BsonRegularExpression(Regex.Escape(fraza), "i"));
+            filtr &= tworzenieFiltru.Regex(lokal => lokal.Nazwa, new BsonRegularExpression(Regex.Escape(fraza), "i"));
         }
 
         return await _lokale.Find(filtr).ToListAsync();

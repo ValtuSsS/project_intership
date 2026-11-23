@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Rezerwacje.Api.Filtry;
-using Rezerwacje.Api.models;
+using Rezerwacje.Api.Models;
 using Rezerwacje.Api.Services;
 
 namespace Rezerwacje.Api.Controllers;

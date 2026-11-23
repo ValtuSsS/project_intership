@@ -1,7 +1,7 @@
 using System;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace Rezerwacje.Api.models;
+namespace Rezerwacje.Api.Models;
 
 [BsonIgnoreExtraElements]
 public class Rezerwacja

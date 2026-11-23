@@ -1,6 +1,6 @@
 using MongoDB.Driver;
 
-using Rezerwacje.Api.models;
+using Rezerwacje.Api.Models;
 using Rezerwacje.Api.Services;
 using StackExchange.Redis;
 using System.Net.Sockets;
@@ -125,23 +125,4 @@ app.MapGet("/test/monitor", async (HttpContext kontekst, IConfiguration konfigur
     }
 });
 
-/*
-app.MapGet("/test/cache", async (CacheRedis cache) =>
-{
-    var lista = await cache.PobierzZCacheLubBazyAsync(
-        "test:lista",
-        "lock:test",
-        TimeSpan.FromSeconds(60),
-        async () =>
-        {
-            await Task.Delay(800);
-            return new List<string> { "09:00", "10:00" };
-        });
-
-    return lista is null
-        ? Results.Problem("Spróbuj ponownie", statusCode: 503)
-        : Results.Ok(lista);
-});
-
-*/
 app.Run();

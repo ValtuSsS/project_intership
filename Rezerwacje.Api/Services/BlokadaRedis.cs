@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using Rezerwacje.Api.models;
+using Rezerwacje.Api.Models;
 using StackExchange.Redis;
 
 namespace Rezerwacje.Api.Services;
@@ -54,7 +54,7 @@ public class BlokadaRedis
                 return token;
             }
 
-            _log.LogInformation("[{Pid}] {Klucz}: wisi blokada, czekam ({Proba}/{Proby})",
+            _log.LogInformation("[{Pid}] {Klucz}: wisi blokada, czekam ({Proba}/{LiczbaProb})",
                 Environment.ProcessId, kluczBlokady, proba, _ustawienia.ProbyBlokadyRezerwacji);
 
             if (proba < _ustawienia.ProbyBlokadyRezerwacji)
@@ -63,7 +63,7 @@ public class BlokadaRedis
             }
         }
 
-        _log.LogError("[{Pid}] {Klucz}: blokada nieudana po {Proby} próbach",
+        _log.LogError("[{Pid}] {Klucz}: blokada nieudana po {LiczbaProb} próbach",
             Environment.ProcessId, kluczBlokady, _ustawienia.ProbyBlokadyRezerwacji);
         return null;
     }

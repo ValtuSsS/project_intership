@@ -49,8 +49,8 @@ Rezerwacje.Api/
 │   ├── RezerwacjeService.cs   wolne godziny, rezerwacja, moje rezerwacje
 │   ├── Format.cs              walidacja daty i godziny
 │   └── DaneStartowe.cs        lokale wstawiane przy starcie (lok1-lok17)
-├── models/
-│   ├── Lokale.cs              klasa Lokal: Id, Nazwa, Typ, Pracownicy, GodzinyOtwarcia
+├── Models/
+│   ├── Lokal.cs               klasa Lokal: Id, Nazwa, Typ, Pracownicy, GodzinyOtwarcia
 │   ├── Pracownik.cs           Id, Imie
 │   ├── GodzinyOtwarcia.cs     DzienTygodnia, OdGodziny, DoGodziny
 │   ├── Rezerwacja.cs, NowaRezerwacja.cs, WynikRezerwacji.cs
@@ -90,7 +90,7 @@ Mentor pokazał to na przykładzie pizzerii. U nas **zamówienie to rezerwacja**
 ## 4. Rozwiązanie techniczne do zastosowania
 
 - **Docker:** `docker run -d --name rabbit -p 5672:5672 -p 15672:15672 rabbitmq:management`. Panel: `http://localhost:15672`, login i hasło `guest` / `guest`.
-- **Ustawienia API:** nowa sekcja w `appsettings.json`, np. `"RabbitMq": { "Host": "localhost", "NazwaExchange": "rezerwacje" }`, i klasa `UstawieniaRabbitMq` w `models`, wczytywana tak jak pozostałe ustawienia.
+- **Ustawienia API:** nowa sekcja w `appsettings.json`, np. `"RabbitMq": { "Host": "localhost", "NazwaExchange": "rezerwacje" }`, i klasa `UstawieniaRabbitMq` w `Models`, wczytywana tak jak pozostałe ustawienia.
 - **Exchange** typu `direct` o nazwie `rezerwacje`, trwały (durable).
 - **Kolejki** trwałe, osobna na każdego pracownika lokalu: `rezerwacje.lok5.p1`, `rezerwacje.lok5.p2`, `rezerwacje.lok1.p1` itd. Każda powiązana z exchange kluczem `{lokalId}.{pracownikId}`, np. `lok5.p1`.
 - **Wiadomości trwałe** (persistent), treść: JSON rezerwacji (id, klient, lokal, pracownik, data, godzina, data utworzenia).

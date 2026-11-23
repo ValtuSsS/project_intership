@@ -1,6 +1,6 @@
 using System;
 
-namespace Rezerwacje.Api.models;
+namespace Rezerwacje.Api.Models;
 
 public class UstawieniaCache
 {

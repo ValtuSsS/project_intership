@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using Rezerwacje.Api.models;
+using Rezerwacje.Api.Models;
 
 namespace Rezerwacje.Api.Services;
 
@@ -88,12 +88,12 @@ public class RezerwacjeService
             }
 
             var wolneGodziny = await PoliczWolneGodzinyZBazyAsync(lokal, nowaRezerwacja.PracownikId, nowaRezerwacja.Data);
-            _log.LogInformation("[{Pid}] {Lok} {Prac} {Data}: baza, wolnych godzin {Ile}",
+            _log.LogInformation("[{Pid}] {LokalId} {PracownikId} {Data}: baza, wolnych godzin {LiczbaWolnych}",
                 Environment.ProcessId, nowaRezerwacja.LokalId, nowaRezerwacja.PracownikId, nowaRezerwacja.Data, wolneGodziny.Count);
             var terminWolny = wolneGodziny.Contains(nowaRezerwacja.Godzina);
             if (!terminWolny)
             {
-                _log.LogInformation("[{Pid}] {Lok} {Prac} {Data} {Godz}: termin zajęty",
+                _log.LogInformation("[{Pid}] {LokalId} {PracownikId} {Data} {Godzina}: termin zajęty",
                     Environment.ProcessId, nowaRezerwacja.LokalId, nowaRezerwacja.PracownikId, nowaRezerwacja.Data, nowaRezerwacja.Godzina);
                 return new(null, "Termin zajęty lub poza godzinami otwarcia", 409);
             }
@@ -124,7 +124,7 @@ public class RezerwacjeService
             var kluczWolnychGodzin = $"wolne:{nowaRezerwacja.LokalId}:{nowaRezerwacja.PracownikId}:{nowaRezerwacja.Data}";
             var kluczRezerwacjiKlienta = $"rezerwacje:klient:{klientId}";
             await _cache.UsunZCacheAsync(kluczWolnychGodzin, kluczRezerwacjiKlienta);
-            _log.LogInformation("[{Pid}] {Wol}, {Kl}: usunięte z redis", Environment.ProcessId, kluczWolnychGodzin, kluczRezerwacjiKlienta);
+            _log.LogInformation("[{Pid}] {KluczWolnychGodzin}, {KluczRezerwacjiKlienta}: usunięte z redis", Environment.ProcessId, kluczWolnychGodzin, kluczRezerwacjiKlienta);
 
             return new(rezerwacja);
         }
