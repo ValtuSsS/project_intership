@@ -10,7 +10,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="10.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     <PackageReference Include="MongoDB.Driver" Version="3.13.0" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.3.0" />
     <PackageReference Include="StackExchange.Redis" Version="3.4.29" />
   </ItemGroup>
-
+  <ItemGroup>
+    <Compile Remove="Rezerwacje.Pracownik/**/*.cs" />
+    <Content Remove="Rezerwacje.Pracownik/**" />
+    <None Remove="Rezerwacje.Pracownik/**" />
+  </ItemGroup>
 </Project>

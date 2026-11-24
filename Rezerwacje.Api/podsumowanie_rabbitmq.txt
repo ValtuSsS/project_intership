@@ -1,0 +1,74 @@
+PODSUMOWANIE – RABBITMQ W SYSTEMIE REZERWACJI
+
+1.  PO CO JEST RABBITMQ? RabbitMQ pośredniczy w przekazywaniu wiadomości
+    między API a osobnym programem pracownika. API zapisuje rezerwację w
+    MongoDB, a następnie wysyła wiadomość do kolejki RabbitMQ. Pracownik
+    nasłuchuje swojej kolejki i odbiera rezerwacje.
+
+2.  JAK WYBIERANA JEST KOLEJKA? Wiadomość jest kierowana według lokalu i
+    pracownika. Przykład:
+
+-   lokal: lok5
+-   pracownik: p1
+-   kolejka: rezerwacje.lok5.p1
+
+Pracownik p2 nasłuchuje osobnej kolejki: rezerwacje.lok5.p2. Dlatego p2
+nie odbiera wiadomości przeznaczonych dla p1.
+
+3.  NAJWAŻNIEJSZE ELEMENTY
+
+-   UstawieniaRabbitMq.cs – przechowuje ustawienia połączenia z
+    RabbitMQ.
+-   appsettings.json – zawiera host i nazwę exchange.
+-   WysylkaRezerwacji.cs – łączy się z RabbitMQ i wysyła rezerwację.
+-   RezerwacjeController – wywołuje wysyłkę po zapisaniu rezerwacji.
+-   Rezerwacje.Pracownik/Program.cs – odbiera wiadomości z kolejki.
+
+4.  WAŻNE POJĘCIA
+
+-   Exchange – odbiera wiadomości od nadawcy i kieruje je do kolejek.
+-   Routing key – określa, do której kolejki ma trafić wiadomość.
+-   Queue – kolejka przechowująca wiadomości do odebrania.
+-   Producer – program wysyłający wiadomości; u nas API.
+-   Consumer – program odbierający wiadomości; u nas pracownik.
+-   ACK – potwierdzenie, że wiadomość została obsłużona.
+
+5.  CO SIĘ DZIEJE, GDY PRACOWNIK JEST WYŁĄCZONY? Wiadomości mogą czekać
+    w trwałej kolejce, a pracownik odbierze je po ponownym uruchomieniu.
+    Kolejka i wiadomości są skonfigurowane jako trwałe.
+
+6.  URUCHAMIANIE Najpierw uruchom RabbitMQ, MongoDB i Redis. Następnie
+    uruchom API w folderze Rezerwacje.Api: dotnet run
+
+Pracownika uruchom w folderze Rezerwacje.Pracownik: dotnet run – lok5 p1
+
+Dla drugiego pracownika: dotnet run – lok5 p2
+
+Wartości lok5 i p1/p2 określają lokal oraz pracownika, którego kolejki
+nasłuchuje program.
+
+7.  USTAWIENIE GOTOWE W pliku appsettings.json pracownika:
+
+-   Gotowe = 1 – pracownik uruchamia nasłuchiwanie.
+-   Gotowe = 0 – pracownik nie łączy się z RabbitMQ i kończy działanie.
+    Po zmianie ustawienia uruchom program ponownie.
+
+8.  CO ZOSTAŁO SPRAWDZONE?
+
+-   API uruchamia się poprawnie.
+-   Rezerwacja została zapisana i wysłana do RabbitMQ.
+-   Właściwy pracownik odebrał wiadomość.
+-   Pracownik p2 nie odbierał wiadomości dla p1.
+-   Wiadomości wysłane podczas wyłączenia pracownika czekały na jego
+    ponowne uruchomienie.
+
+9.  WAŻNE OGRANICZENIE Zapis rezerwacji w MongoDB i wysłanie wiadomości
+    do RabbitMQ to dwie osobne operacje. Jeśli zapis się powiedzie, ale
+    wysyłka do RabbitMQ zawiedzie, rezerwacja pozostanie w bazie, a
+    wiadomość może nie zostać wysłana. Obecna wersja nie ma mechanizmu
+    Outbox ani automatycznych ponowień.
+
+NAJWAŻNIEJSZE DO ZAPAMIĘTANIA API zapisuje rezerwację i wysyła
+wiadomość. RabbitMQ kieruje ją do kolejki odpowiedniego lokalu i
+pracownika. Program pracownika odbiera wiadomość i potwierdza jej
+obsłużenie.

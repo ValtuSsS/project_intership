@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<UstawieniaBazy>(builder.Configuration.GetSection("Baza"));
 
 builder.Services.Configure<UstawieniaCache>(builder.Configuration.GetSection("Cache"));
+builder.Services.Configure<UstawieniaRabbitMq>(
+    builder.Configuration.GetSection("RabbitMq"));
 var adresMongo = builder.Configuration["Baza:ConnectionString"];
 var adresRedis = builder.Configuration["Redis:ConnectionString"];
 Console.WriteLine($"Mongo: {adresMongo}");
@@ -28,7 +30,7 @@ builder.Services.AddSingleton<IMongoClient>(_ =>
 builder.Services.AddSingleton<BlokadaRedis>();
 builder.Services.AddSingleton<CacheRedis>();
 builder.Services.AddSingleton<LokaleService>();
-
+builder.Services.AddSingleton<WysylkaRezerwacji>();
 builder.Services.AddSingleton<RezerwacjeService>();
 
 builder.Services.AddControllers(opcje =>
@@ -125,4 +127,4 @@ app.MapGet("/test/monitor", async (HttpContext kontekst, IConfiguration konfigur
     }
 });
 
-app.Run();
+app.Run();
